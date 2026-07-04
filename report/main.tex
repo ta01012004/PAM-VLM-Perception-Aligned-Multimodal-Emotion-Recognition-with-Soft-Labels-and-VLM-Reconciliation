@@ -1,0 +1,427 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric}
+
+\graphicspath{{figures/}}
+
+% Placeholder command for missing figures
+\newcommand{\placeholder}[2]{%
+  \fbox{\begin{minipage}{#1}
+    \centering\vspace{0.4cm}
+    \textcolor{gray}{\textit{[Figure: #2]}}
+    \vspace{0.4cm}
+  \end{minipage}}%
+}
+
+\begin{document}
+
+\title{PAM-VLM: Perception-Aligned Multimodal Emotion Recognition\\
+with Soft Labels and VLM Reconciliation on CREMA-D}
+
+\author{
+  \IEEEauthorblockN{[Họ và tên]}
+  \IEEEauthorblockA{
+    \textit{[Khoa / Bộ môn]}\\
+    \textit{[Trường đại học]}\\
+    [Email]
+  }
+}
+
+\maketitle
+
+% ─────────────────────────────────────────────
+\begin{abstract}
+Audio-visual emotion recognition (AV-MER) on the CREMA-D dataset has attracted
+significant attention, yet reported accuracies vary wildly---from 69\% to
+95\%---due to inconsistent evaluation protocols, particularly random clip splits
+that leak actor identity into test sets.
+We present \textbf{PAM-VLM} (Perception-Aligned Multimodal VLM), a three-tier
+architecture that addresses both the methodological and modeling shortcomings of
+prior work.
+First, we exploit CREMA-D's unique per-modality vote annotations
+(voice-only, face-only, and audio-visual conditions) to train each encoder branch
+with \emph{soft labels} derived from human vote distributions rather than hard
+one-hot labels, improving calibration under label noise.
+Second, a bidirectional cross-attention fusion module produces a deterministic
+six-class classifier as the primary metric source.
+Third, an optional Qwen2.5-0.5B LLM with LoRA acts as a reasoning reconciler for
+high audio-video disagreement cases and enables prompt-based zero-shot transfer
+to unseen tasks.
+All experiments use a strict actor-independent split (70/10/11 actors) with
+Macro-F1 and UAR as primary metrics.
+Training is currently in progress on an A100 GPU cluster; this report presents
+the design, dataset analysis, and experimental protocol.
+\end{abstract}
+
+\begin{IEEEkeywords}
+emotion recognition, multimodal learning, label distribution learning,
+cross-attention fusion, vision-language model, CREMA-D
+\end{IEEEkeywords}
+
+% ─────────────────────────────────────────────
+\section{Introduction}
+\label{sec:intro}
+
+Automatic emotion recognition from speech and facial expressions is a core
+capability for human-computer interaction, mental health monitoring, and
+affective computing.
+Multimodal systems that jointly process audio and video consistently outperform
+unimodal counterparts~\cite{cao2014crema}, yet building a reliable, reproducible
+system remains challenging due to label ambiguity and inconsistent benchmarking
+practices.
+
+The CREMA-D dataset~\cite{cao2014crema} is a widely used benchmark offering
+7,442 clips from 91 actors spanning six canonical emotions.
+Crucially, it provides crowd-sourced votes under three distinct perceptual
+conditions---voice-only, face-only, and audio-visual---a resource that has been
+largely ignored by prior work, which typically collapses votes into a single hard
+label.
+
+A survey of published results reveals a fundamental comparability problem:
+reported accuracies on CREMA-D range from~69\% to~95\% (see Table~\ref{tab:benchmark}).
+We attribute this variance not to model capability but to evaluation protocol,
+specifically random clip splits that allow the same actor to appear in both
+training and test sets.
+When the same voice and face are seen at train time, a model can exploit speaker
+identity as a shortcut rather than learning genuine emotion representations---a
+phenomenon we term \emph{actor leakage}.
+
+The contributions of this work are:
+\begin{itemize}
+  \item \textbf{Benchmark critique with evidence:} we systematically show that
+    high-accuracy CREMA-D results correlate with random splits and
+    augmentation-before-split pipelines, and establish an honest baseline range
+    of 70--85\% under actor-independent evaluation.
+  \item \textbf{Per-modality soft-label supervision:} we leverage CREMA-D's
+    three vote conditions to construct per-clip label distributions for each
+    modality, applying Label Distribution Learning~\cite{geng2016ldl} to improve
+    calibration and Macro-F1 under noisy labels.
+  \item \textbf{VLM reconciler with zero-shot transfer:} an optional
+    Qwen2.5-0.5B~\cite{qwen2025} branch with LoRA~\cite{hu2022lora} provides
+    explainable reconciliation of audio-video conflicts and enables
+    prompt-only zero-shot transfer to held-out tasks, a capability absent in
+    deterministic classifiers.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Audio-Visual Emotion Recognition}
+
+Cross-attention fusion between audio and visual streams has emerged as the
+dominant paradigm for AV-MER.
+AVT-CA~\cite{avtca2024} applies bidirectional audio-video transformer fusion
+across multiple benchmarks including CREMA-D.
+Nature hybrid fusion~\cite{naturefusion2026} specifically evaluates under
+speaker-independent conditions, reporting results in the 80\%+ range---the
+honest upper bound we target.
+
+\subsection{Benchmark Protocol Critique}
+\label{ssec:critique}
+
+Table~\ref{tab:benchmark} summarizes published results alongside the evaluation
+protocol where known.
+Entries achieving $\geq$89\% share a common pattern: random clip splits, and in
+several cases, data augmentation applied \emph{before} the train/test split.
+The most telling indicator of leakage is when a model surpasses the human
+agreement ceiling: crowd-sourced annotators on CREMA-D achieve only 60--75\%
+pairwise agreement even when provided both audio and visual modalities.
+A machine exceeding this ceiling on the same data is almost certainly exploiting
+identity rather than affective content.
+
+\begin{table}[t]
+\centering
+\caption{Published CREMA-D results and evaluation protocol.
+  $\dagger$~random/augment-before-split (excluded from comparison).
+  $\star$~actor/speaker-independent confirmed.
+  $\ddagger$~$<$6 emotion classes.
+  $\circ$~protocol unspecified.
+  Scores: Acc unless noted (UAR\,=\,unweighted avg.\ recall; F1\,=\,macro-F1).}
+\label{tab:benchmark}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method (Year)} & \textbf{Mod.} & \textbf{Split} & \textbf{Score} \\
+\midrule
+\multicolumn{4}{l}{\textit{Not included — protocol issues:}} \\
+Hybrid DL+FE~(2025)          & Au  & Rnd$\dagger$        & 95.1\% \\
+Transformer-CNN~(2025)        & Au  & Rnd$\dagger\ddagger$& 90.0\% \\
+Spectral+Attn~(2025)          & Au  & Rnd$\dagger$        & 89.3\% \\
+\midrule
+\multicolumn{4}{l}{\textit{Actor/speaker-independent evaluation:}} \\
+Human ceiling~\cite{cao2014crema}      & A+V & Human         & $\sim$63\% \\
+Raw waveform CNN~\cite{rawwavecnn2023} & Au  & Indep.$\star$ & 69.7\% \\
+DistilHuBERT~\cite{distilhubert2025}   & Au  & Indep.$\star$ & 70.6\% \\
+Transfer+Emb.~\cite{transfer2024}      & Au  & Indep.$\star$ & UAR 80.3\% \\
+GST+Emotion~\cite{gst2022}            & Au  & Indep.$\star$ & 80.8\% \\
+GRU-AV~\cite{timebased2023}           & A+V & Indep.$\star$ & F1 64.0\% \\
+AVT-CA~\cite{avtca2024}               & A+V & n/a$\circ$    & --- \\
+Nature hybrid~\cite{naturefusion2026}  & A+V & Indep.$\star$ & $\sim$80\%+ \\
+\midrule
+\textbf{PAM-VLM (ours)}               & A+V & Indep.$\star$ & \textit{pending} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Label Distribution Learning}
+
+Geng~\cite{geng2016ldl} formalizes learning from label distributions rather than
+crisp labels, showing consistent gains on datasets with inherent ambiguity.
+CREMA-D's crowd-sourced vote structure is a natural fit: rather than discarding
+annotator disagreement, we treat it as a calibration signal.
+
+\subsection{VLMs for Affective Computing}
+
+Vision-language models bring world knowledge about emotional expression but
+perform poorly as zero-shot emotion classifiers (40--55\% reported on
+face-based tasks).
+Their strength lies in compositional reasoning over conflicting modality signals
+and in prompt-driven transfer to unseen label sets---exactly the roles we assign
+to our optional VLM branch.
+
+% ─────────────────────────────────────────────
+\section{Proposed Method: PAM-VLM}
+\label{sec:method}
+
+\subsection{Architecture Overview}
+
+PAM-VLM comprises three tiers (Figure~\ref{fig:arch}):
+(1)~modality-specific encoders producing temporal token sequences;
+(2)~bidirectional cross-attention fusion culminating in a deterministic
+six-class classifier;
+(3)~an optional LLM reconciler that operates on fusion embeddings.
+
+\begin{figure}[t]
+  \centering
+  \placeholder{\columnwidth}{Architecture diagram: 3-tier PAM-VLM.\\
+    Left: WavLM audio encoder + projector.\\
+    Middle: EfficientNet per-frame + temporal Transformer.\\
+    Right: Cross-attention fusion, gated pooling,\\
+    classifier heads, and optional Qwen+LoRA branch.}
+  \caption{PAM-VLM architecture. Frozen encoders are shown in gray.
+    The fusion head is the primary metric source; the VLM branch
+    (dashed) is optional and disabled during baseline training.}
+  \label{fig:arch}
+\end{figure}
+
+\subsection{Encoders}
+
+\textbf{Audio encoder.}
+Raw waveforms at 16\,kHz are processed by
+WavLM-base-plus~\cite{chen2022wavlm} ($\sim$94M parameters, frozen),
+producing hidden states of dimension 768.
+A linear projector maps these to the shared dimension $d=256$.
+
+\textbf{Visual encoder.}
+For each sampled frame, EfficientNet-B0~\cite{tan2019efficientnet}
+($\sim$5.3M parameters, frozen) extracts a 1280-dim feature vector.
+A two-layer Transformer encoder ($d=256$, 4 heads) models temporal
+dependencies across the $F=16$ sampled frames, yielding visual tokens
+$\mathbf{V}\in\mathbb{R}^{B\times F\times 256}$.
+Face detection and alignment are performed offline using an OpenCV Haar
+cascade; detection failures fall back to center crop (counted separately).
+
+\subsection{Bidirectional Cross-Attention Fusion}
+
+Audio tokens $\mathbf{A}\in\mathbb{R}^{B\times T_a\times 256}$ and visual
+tokens $\mathbf{V}$ are fused via two parallel attention operations:
+audio queries attend to video, and video queries attend to audio.
+Residual connections and layer normalization follow each operation.
+Gated pooling then collapses the temporal dimensions:
+\begin{equation}
+  \mathbf{g} = \sigma\!\left(\mathbf{W}_g[\bar{\mathbf{A}};\bar{\mathbf{V}}]\right),
+  \quad
+  \mathbf{e} = \mathbf{g}\odot\bar{\mathbf{A}} + (1-\mathbf{g})\odot\bar{\mathbf{V}},
+\end{equation}
+where $\bar{\cdot}$ denotes masked mean pooling over valid (non-padded) positions
+and $\mathbf{e}\in\mathbb{R}^{B\times 256}$ is the fusion embedding.
+Three linear heads project $\mathbf{e}$ (or the un-pooled audio/video tokens)
+to logits $\hat{\mathbf{y}}_\text{audio}$, $\hat{\mathbf{y}}_\text{video}$,
+and $\hat{\mathbf{y}}_\text{av}\in\mathbb{R}^{B\times 6}$.
+\textbf{The fusion head $\hat{\mathbf{y}}_\text{av}$ is the sole source
+of reported benchmark metrics.}
+
+\subsection{Per-Modality Soft Labels}
+\label{ssec:soft}
+
+CREMA-D provides annotator votes under three perceptual conditions.
+We aggregate votes per clip per condition into Laplace-smoothed probability
+vectors:
+\begin{equation}
+  \tilde{p}_c^{(i)} = \frac{n_c^{(i)} + \alpha}{\sum_j n_j^{(i)} + 6\alpha},
+  \quad \alpha = 1,
+\end{equation}
+where $n_c^{(i)}$ is the vote count for emotion $c$ under condition~$i$
+(voice, face, or AV).
+Coverage is 100\% across all 7,442 clips (no fallback required).
+
+Figure~\ref{fig:softlabel} illustrates how a single clip's vote distribution
+differs across the three conditions---disagreement that hard labels discard.
+
+\begin{figure}[t]
+  \centering
+  \placeholder{\columnwidth}{Soft-label example: bar charts for one clip,\\
+    showing vote distributions under voice-only (condition 1),\\
+    face-only (condition 2), and AV (condition 3).\\
+    X-axis: 6 emotion classes. Y-axis: probability.}
+  \caption{Per-modality vote distributions for one example clip.
+    Hard-label supervision would collapse all three bars to the majority class,
+    discarding the inter-condition disagreement used by PAM-VLM.}
+  \label{fig:softlabel}
+\end{figure}
+
+The multi-term training objective is:
+\begin{equation}
+  \mathcal{L} = 0.6\,D_\text{KL}(\hat{y}_\text{av}\!\parallel\!\tilde{p}_\text{av})
+              + 0.2\,D_\text{KL}(\hat{y}_\text{audio}\!\parallel\!\tilde{p}_\text{voice})
+              + 0.2\,D_\text{KL}(\hat{y}_\text{video}\!\parallel\!\tilde{p}_\text{face}),
+  \label{eq:loss}
+\end{equation}
+where each term is logged independently and controllable via ablation flags.
+
+\subsection{VLM Reconciler (Optional)}
+
+When audio and video predictions diverge---quantified as
+$D_\text{KL}(\hat{y}_\text{audio}\parallel\hat{y}_\text{video})$ exceeding a
+threshold---the fusion embedding $\mathbf{e}$ is projected into the token space
+of Qwen2.5-0.5B-Instruct~\cite{qwen2025} via a learned linear projector.
+LoRA adapters~\cite{hu2022lora} with rank~16 are applied to query and value
+projections in each attention layer ($\sim$3M trainable parameters).
+The LLM generates a constrained output of the form
+\texttt{<emotion>angry</emotion>} plus a one-sentence rationale.
+An invalid-format parser enforces label validity; the invalid-output rate is
+reported alongside accuracy.
+
+Crucially, this branch is \emph{disabled} during baseline and soft-label training,
+keeping the training objective identical to prior models for fair comparison.
+
+% ─────────────────────────────────────────────
+\section{Experimental Protocol}
+\label{sec:exp}
+
+\subsection{Dataset and Splits}
+
+We use CREMA-D with a strict \textbf{actor-independent} split
+(seed~42): 70 actors for training (5,721 clips), 10 for validation
+(820 clips), and 11 for test (901 clips).
+Disjointness is asserted programmatically; a SHA-256 checksum of the manifest
+is stored with every checkpoint.
+Data augmentation (time-shift, noise) is applied \emph{after} splitting, on the
+training partition only, preventing augmentation leakage.
+
+\subsection{Metrics}
+
+Primary: \textbf{Macro-F1} and \textbf{UAR} (unweighted average recall
+$=$ macro recall).
+Secondary: accuracy/WAR, per-class P/R/F1, confusion matrix, and Expected
+Calibration Error (ECE) for measuring probability calibration.
+For the generative VLM branch we additionally report invalid-format rate and
+average generated token count.
+
+\subsection{Baselines and Ablations}
+
+\begin{enumerate}
+  \item \textbf{Audio-only:} WavLM + linear head (CE loss).
+  \item \textbf{Video-only:} EfficientNet + temporal Transformer + linear head.
+  \item \textbf{Fusion, hard label:} full PAM-VLM backbone with CE loss.
+  \item \textbf{Fusion, soft label:} full loss in Eq.~\eqref{eq:loss};
+    ablated per term.
+  \item \textbf{Fusion + VLM reconciler:} adds LoRA branch.
+  \item \textbf{Zero-shot cross-task:} VLM branch with modified prompt,
+    no weight update, on a held-out target dataset.
+\end{enumerate}
+
+All runs share the same split, preprocessing, and training budget for fair
+comparison.
+
+\subsection{Implementation}
+
+Audio: 16\,kHz mono, processor from \texttt{transformers}.
+Video: 16 frames at 224$\times$224, OpenCV Haar face detection.
+Optimizer: AdamW ($\eta=3\times10^{-4}$, weight decay $0.01$).
+Effective batch size: 32 (batch~8, gradient accumulation~4), AMP enabled.
+Early stopping patience: 6 epochs on validation Macro-F1.
+Hardware: NVIDIA A100 (SLURM cluster).
+
+% ─────────────────────────────────────────────
+\section{Expected Results and Discussion}
+\label{sec:results}
+
+\noindent\textit{Note: training is currently in progress.
+Table~\ref{tab:results} shows the result template; values will be filled upon
+job completion.}
+
+\begin{table}[t]
+\centering
+\caption{Result table (pending). Best numbers in \textbf{bold}.}
+\label{tab:results}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Run} & \textbf{Macro-F1} & \textbf{UAR} & \textbf{Acc.} & \textbf{ECE} \\
+\midrule
+Audio-only          & ---  & ---  & ---  & ---  \\
+Video-only          & ---  & ---  & ---  & ---  \\
+Fusion (hard label) & ---  & ---  & ---  & ---  \\
+Fusion (soft label) & ---  & ---  & ---  & ---  \\
+\quad w/o audio KL  & ---  & ---  & ---  & ---  \\
+\quad w/o video KL  & ---  & ---  & ---  & ---  \\
++ VLM reconciler    & ---  & ---  & ---  & ---  \\
+\midrule
+Zero-shot (target)  & ---  & ---  & ---  & n/a  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Based on literature with actor-independent evaluation, we expect the fusion
+hard-label baseline to achieve 75--82\% accuracy, consistent with
+naturefusion~\cite{naturefusion2026} and DistilHuBERT~\cite{distilhubert2025}.
+Soft-label training targets a Macro-F1 gain of 1--3\% and a reduction in ECE,
+reflecting improved calibration under label noise.
+The VLM reconciler is not expected to improve overall accuracy; its value lies
+in correcting high-disagreement cases and enabling zero-shot transfer---a
+capability the deterministic classifier structurally cannot provide.
+
+\begin{figure}[t]
+  \centering
+  \placeholder{\columnwidth}{Confusion matrix (6×6) on test set.\\
+    Rows: true labels. Columns: predicted labels.\\
+    To be filled after training.}
+  \caption{Confusion matrix on the actor-independent test set (pending).}
+  \label{fig:cm}
+\end{figure}
+
+% ─────────────────────────────────────────────
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented PAM-VLM, an audio-visual emotion recognition system for CREMA-D
+that addresses systematic benchmarking flaws in prior work and introduces
+per-modality soft-label supervision drawn from the dataset's unique vote
+structure.
+A strict actor-independent evaluation protocol ensures that reported results
+reflect genuine emotion understanding rather than speaker memorization.
+The optional VLM branch provides explainability and cross-task generalization
+orthogonal to classification accuracy.
+Ongoing training on an A100 cluster will furnish quantitative results to
+complete this study.
+
+% ─────────────────────────────────────────────
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

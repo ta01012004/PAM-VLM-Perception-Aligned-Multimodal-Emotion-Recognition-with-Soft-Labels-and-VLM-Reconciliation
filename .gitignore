@@ -1,0 +1,32 @@
+# Large datasets
+data/raw/
+data/interim/
+data/processed/
+data/splits/
+
+# Model artifacts
+artifacts/checkpoints/
+artifacts/pretrained/
+artifacts/exports/
+
+# Logs and experiment outputs
+logs/
+experiments/**/runs/
+experiments/**/wandb/
+experiments/**/tensorboard/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files
+.env
+.venv/
+venv/
+env/
+
+# Notebook checkpoints
+.ipynb_checkpoints/

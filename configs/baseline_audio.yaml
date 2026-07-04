@@ -1,0 +1,39 @@
+run_name: wavlm-effb0_audio_s42_actor-v1
+baseline: audio
+seed: 42
+output_root: artifacts/checkpoints
+model_config: configs/models/pam_vlm.json
+
+data:
+  raw_root: data/raw/crema_d
+  train_manifest: data/splits/manifest_train.csv
+  val_manifest: data/splits/manifest_val.csv
+  split_checksum: data/splits/manifest_checksum.txt
+  label_mapping: data/splits/label_mapping.json
+  loader_config: configs/data/loader.json
+  decode_error_report: data/interim/decode_errors_audio.csv
+  soft_labels:
+    voice: data/splits/soft_labels_voice.parquet
+    face: data/splits/soft_labels_face.parquet
+    av: data/splits/soft_labels_av.parquet
+
+training:
+  epochs: 30
+  batch_size: 8
+  num_workers: 4
+  gradient_accumulation_steps: 4
+  amp: true
+  max_grad_norm: 1.0
+  early_stopping_patience: 6
+  primary_metric: macro_f1
+
+optimizer:
+  learning_rate: 0.0003
+  minimum_learning_rate: 0.000001
+  weight_decay: 0.01
+
+loss:
+  hard_weights: {fusion: 0.0, audio: 1.0, video: 0.0}
+  soft_labels_enabled: false
+  soft_weights: {fusion: 0.6, audio: 0.2, video: 0.2}
+

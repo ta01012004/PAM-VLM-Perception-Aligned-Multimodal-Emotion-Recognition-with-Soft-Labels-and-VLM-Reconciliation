@@ -1,0 +1,29 @@
+{
+  "num_classes": 6,
+  "head_dropout": 0.1,
+  "audio": {
+    "encoder_id": "microsoft/wavlm-base-plus",
+    "backend": "transformers",
+    "backbone_dim": 768,
+    "hidden_dim": 256,
+    "freeze_backbone": true,
+    "dropout": 0.1,
+    "tiny_stride": 4
+  },
+  "video": {
+    "backbone_id": "efficientnet_b0",
+    "backend": "torchvision",
+    "backbone_dim": 1280,
+    "hidden_dim": 256,
+    "temporal_layers": 2,
+    "num_heads": 4,
+    "dropout": 0.1,
+    "freeze_backbone": true,
+    "pretrained": true
+  },
+  "fusion": {
+    "hidden_dim": 256,
+    "num_heads": 4,
+    "dropout": 0.1
+  }
+}

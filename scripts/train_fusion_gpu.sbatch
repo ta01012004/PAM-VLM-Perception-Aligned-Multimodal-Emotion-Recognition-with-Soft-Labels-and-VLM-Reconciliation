@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=pam-fusion
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=48G
+#SBATCH --time=12:00:00
+#SBATCH --output=logs/%x-%j.out
+
+set -euo pipefail
+cd "${SLURM_SUBMIT_DIR}"
+export HF_HOME="${PWD}/artifacts/pretrained/huggingface"
+export PYTHONPATH="${PWD}/src:${PYTHONPATH:-}"
+srun python scripts/train.py --config configs/baseline_fusion.yaml

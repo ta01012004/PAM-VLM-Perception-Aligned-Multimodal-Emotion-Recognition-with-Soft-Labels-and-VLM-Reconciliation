@@ -1,0 +1,9 @@
+{
+  "seed": 42,
+  "actor_counts": {
+    "train": 70,
+    "val": 10,
+    "test": 11
+  },
+  "laplace_alpha": 1.0
+}
