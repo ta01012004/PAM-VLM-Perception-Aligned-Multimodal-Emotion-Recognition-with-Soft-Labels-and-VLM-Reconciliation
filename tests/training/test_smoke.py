@@ -112,17 +112,59 @@ def test_loss_rejects_invalid_labels_and_nonfinite_logits() -> None:
         criterion(invalid_output, torch.tensor([0, 1], dtype=torch.long))
 
 
-def test_soft_label_flag_is_reserved_for_step_five() -> None:
-    with pytest.raises(NotImplementedError, match="step 05"):
+def test_soft_label_kl_loss_zero_when_prediction_matches_and_positive_otherwise() -> None:
+    criterion = MultiBranchClassificationLoss(
+        LossConfig(
+            hard_fusion_weight=0.0,
+            hard_audio_weight=0.0,
+            hard_video_weight=0.0,
+            soft_labels_enabled=True,
+            soft_fusion_weight=0.6,
+            soft_audio_weight=0.2,
+            soft_video_weight=0.2,
+        )
+    )
+    # Target distributions; build logits whose softmax equals the target exactly,
+    # so forward KL(target || softmax(logits)) must be ~0.
+    target = torch.tensor(
+        [[0.7, 0.1, 0.1, 0.05, 0.025, 0.025], [0.1, 0.1, 0.2, 0.3, 0.2, 0.1]]
+    )
+    matched_logits = torch.log(target)
+    labels = torch.tensor([0, 3], dtype=torch.long)
+    soft = {"fusion": target, "audio": target, "video": target}
+    matched = criterion(
+        {"logits": matched_logits, "audio_logits": matched_logits, "video_logits": matched_logits},
+        labels,
+        soft,
+    )
+    assert matched.total.item() == pytest.approx(0.0, abs=1e-5)
+    for name in ("soft_fusion_kl", "soft_audio_kl", "soft_video_kl"):
+        assert name in matched.components
+
+    mismatched_logits = torch.zeros_like(target)  # uniform softmax != target
+    mismatched = criterion(
+        {
+            "logits": mismatched_logits,
+            "audio_logits": mismatched_logits,
+            "video_logits": mismatched_logits,
+        },
+        labels,
+        soft,
+    )
+    assert mismatched.total.item() > 0.0
+
+
+def test_soft_label_requires_positive_soft_weight() -> None:
+    with pytest.raises(ValueError, match="positive soft weight"):
         MultiBranchClassificationLoss(
             LossConfig(
-                hard_fusion_weight=1.0,
+                hard_fusion_weight=0.0,
                 hard_audio_weight=0.0,
                 hard_video_weight=0.0,
                 soft_labels_enabled=True,
-                soft_fusion_weight=0.6,
-                soft_audio_weight=0.2,
-                soft_video_weight=0.2,
+                soft_fusion_weight=0.0,
+                soft_audio_weight=0.0,
+                soft_video_weight=0.0,
             )
         )
 

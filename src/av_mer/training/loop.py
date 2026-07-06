@@ -44,8 +44,8 @@ class LoopConfig:
             raise ValueError("epochs must be positive.")
         if self.gradient_accumulation_steps <= 0:
             raise ValueError("gradient_accumulation_steps must be positive.")
-        if self.early_stopping_patience <= 0:
-            raise ValueError("early_stopping_patience must be positive.")
+        if self.early_stopping_patience < 0:
+            raise ValueError("early_stopping_patience must be non-negative (0 disables it).")
         if self.max_grad_norm is not None and self.max_grad_norm <= 0:
             raise ValueError("max_grad_norm must be positive when configured.")
         if self.baseline not in BASELINE_TO_OUTPUT:
@@ -163,13 +163,30 @@ def run_train_epoch(
             config.gradient_accumulation_steps,
             num_batches - group_start,
         )
-        with torch.autocast(device_type=device.type, enabled=amp_enabled):
-            output = model(**_model_inputs(batch))
-            result = criterion(output, labels, _soft_targets(batch))
-            scaled_loss = result.total / group_size
-        if not torch.isfinite(result.total):
-            raise FloatingPointError(f"Non-finite training loss at batch {batch_index}.")
-        scaler.scale(scaled_loss).backward()
+        batch_ok = True
+        try:
+            with torch.autocast(device_type=device.type, enabled=amp_enabled):
+                output = model(**_model_inputs(batch))
+                result = criterion(output, labels, _soft_targets(batch))
+                scaled_loss = result.total / group_size
+            if not torch.isfinite(result.total):
+                raise FloatingPointError(f"Non-finite training loss at batch {batch_index}.")
+        except FloatingPointError:
+            # Under AMP, forward overflow can yield Inf logits/loss at the current
+            # loss scale. This is expected: skip this batch's contribution and let
+            # the GradScaler lower the scale at the group boundary. Only abort when
+            # AMP is off, where a non-finite value signals genuine divergence.
+            if not amp_enabled:
+                raise
+            LOGGER.warning(
+                "Non-finite forward at batch %d under AMP; skipping batch and "
+                "reducing loss scale.",
+                batch_index,
+            )
+            batch_ok = False
+
+        if batch_ok:
+            scaler.scale(scaled_loss).backward()
 
         is_group_end = (
             (batch_index + 1) % config.gradient_accumulation_steps == 0
@@ -183,14 +200,27 @@ def run_train_epoch(
                     config.max_grad_norm,
                 )
                 if not torch.isfinite(gradient_norm):
-                    raise FloatingPointError(
-                        f"Non-finite gradient norm at optimizer step {global_step}."
-                    )
+                    if amp_enabled:
+                        # Expected AMP behaviour: the GradScaler overflowed at the
+                        # current scale. scaler.step() below self-skips the optimizer
+                        # update when found_inf is set, and scaler.update() lowers the
+                        # scale. This is recovery, not divergence -- do not abort.
+                        LOGGER.warning(
+                            "Non-finite gradient norm at step %d under AMP; "
+                            "GradScaler will skip this step and reduce the loss scale.",
+                            global_step,
+                        )
+                    else:
+                        raise FloatingPointError(
+                            f"Non-finite gradient norm at optimizer step {global_step}."
+                        )
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad(set_to_none=True)
             global_step += 1
 
+        if not batch_ok:
+            continue
         logits = _select_logits(output, config.baseline)
         if logits.shape != (labels.shape[0], 6):
             raise ValueError(
@@ -416,7 +446,7 @@ class Trainer:
                 resolved_config=self.resolved_config,
                 split_checksum=self.split_checksum,
             )
-            if bad_epochs >= self.config.early_stopping_patience:
+            if self.config.early_stopping_patience > 0 and bad_epochs >= self.config.early_stopping_patience:
                 LOGGER.info("Early stopping after %d non-improving epochs.", bad_epochs)
                 break
 

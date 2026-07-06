@@ -253,6 +253,28 @@ def main() -> int:
         test_metrics=None,
     )
     write_json(run_dir / "reproducibility.json", reproducibility)
+    try:
+        from plot_results import (  # noqa: E402
+            _best_record,
+            plot_confusion_matrices,
+            plot_loss_components,
+            plot_loss_curves,
+            plot_metric_curves,
+            plot_per_class_f1,
+        )
+
+        figures_dir = run_dir / "figures"
+        figures_dir.mkdir(parents=True, exist_ok=True)
+        history_records = fit_result.history
+        plot_loss_curves(history_records, figures_dir / "loss_curves.png", 150)
+        plot_metric_curves(history_records, figures_dir / "metric_curves.png", 150)
+        plot_loss_components(history_records, figures_dir / "loss_components.png", 150)
+        best_record = _best_record(history_records)
+        plot_per_class_f1(best_record, figures_dir / "per_class_f1.png", 150)
+        plot_confusion_matrices(best_record, figures_dir, 150)
+        LOGGER.info("Figures written to %s", figures_dir)
+    except Exception:  # noqa: BLE001 - plotting must never lose a trained model
+        LOGGER.exception("Figure generation failed; training artifacts are intact.")
     LOGGER.info("Best validation %s=%.6f", training_config["primary_metric"], fit_result.best_metric)
     LOGGER.info("Run artifacts: %s", run_dir)
     return 0

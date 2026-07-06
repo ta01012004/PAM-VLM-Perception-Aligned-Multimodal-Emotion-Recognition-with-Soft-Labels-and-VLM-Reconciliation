@@ -1,0 +1,51 @@
+{
+  "baseline": "video",
+  "data": {
+    "decode_error_report": "data/interim/decode_errors_video.csv",
+    "label_mapping": "data/splits/label_mapping.json",
+    "loader_config": "configs/data/loader.json",
+    "raw_root": "data/raw/crema_d",
+    "soft_labels": {
+      "av": "data/splits/soft_labels_av.parquet",
+      "face": "data/splits/soft_labels_face.parquet",
+      "voice": "data/splits/soft_labels_voice.parquet"
+    },
+    "split_checksum": "data/splits/manifest_checksum.txt",
+    "train_manifest": "data/splits/manifest_train.csv",
+    "val_manifest": "data/splits/manifest_val.csv"
+  },
+  "loss": {
+    "hard_weights": {
+      "audio": 0.0,
+      "fusion": 0.0,
+      "video": 1.0
+    },
+    "soft_labels_enabled": false,
+    "soft_weights": {
+      "audio": 0.2,
+      "fusion": 0.6,
+      "video": 0.2
+    }
+  },
+  "model_config": "configs/models/pam_vlm.json",
+  "optimizer": {
+    "learning_rate": 0.0003,
+    "minimum_learning_rate": 1e-06,
+    "weight_decay": 0.01
+  },
+  "output_root": "artifacts/checkpoints",
+  "run_id": "20260705-123801_wavlm-effb0_video_s42_actor-v1",
+  "run_name": "wavlm-effb0_video_s42_actor-v1",
+  "seed": 42,
+  "slurm_job_id": "76420",
+  "training": {
+    "amp": true,
+    "batch_size": 8,
+    "early_stopping_patience": 0,
+    "epochs": 30,
+    "gradient_accumulation_steps": 4,
+    "max_grad_norm": 1.0,
+    "num_workers": 12,
+    "primary_metric": "macro_f1"
+  }
+}

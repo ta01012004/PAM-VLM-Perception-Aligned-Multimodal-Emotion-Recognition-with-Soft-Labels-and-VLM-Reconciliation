@@ -105,9 +105,14 @@ Clip: actor says "HAPPY" but looks sad
 | DistilHuBERT (2025) | Audio | Indep.★ | 70.6% |
 | Transfer+Emb. (2024) | Audio | Indep.★ | UAR 80.3% |
 | Nature hybrid fusion (2026) | A+V | Indep.★ | ~80%+ |
-| **PAM-VLM (ours)** | **A+V** | **Indep.★** | **pending** |
+| **PAM-VLM audio-only (ours)** | **Audio** | **Indep.★** | **test Macro-F1 0.692** |
+| **PAM-VLM fusion (ours)** | **A+V** | **Indep.★** | **test Macro-F1 0.685** |
 
 † random/augment-before-split suspected · ‡ <6 emotion classes · ★ actor/speaker-independent confirmed
+
+Full validation + test tables, per-class metrics, confusion matrices, and
+training curves are in [`results/`](results/README.md). Soft-label (step-05)
+results pending.
 
 Methods marked † exceed human agreement ceiling (~63% for AV condition) — physically impossible without data leakage.
 

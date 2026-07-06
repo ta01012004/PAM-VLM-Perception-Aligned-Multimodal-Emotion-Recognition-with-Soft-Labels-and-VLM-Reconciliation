@@ -15,6 +15,9 @@ BRANCH_TO_OUTPUT = {
     "audio": "audio_logits",
     "video": "video_logits",
 }
+# soft_targets is keyed by branch name (loop.py maps voice->audio, face->video,
+# av->fusion), so each branch supervises against its matching vote condition.
+SOFT_BRANCHES = ("fusion", "audio", "video")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,16 +73,19 @@ class MultiBranchClassificationLoss(nn.Module):
         hard_weights = self._hard_weights()
         if any(weight < 0 for weight in hard_weights.values()):
             raise ValueError(f"Hard-label loss weights must be non-negative: {hard_weights}.")
-        if sum(hard_weights.values()) <= 0:
-            raise ValueError("At least one hard-label loss weight must be positive.")
         soft_weights = self._soft_weights()
         if any(weight < 0 for weight in soft_weights.values()):
             raise ValueError(f"Soft-label loss weights must be non-negative: {soft_weights}.")
+        # At least one supervision term must be active. For hard-label baselines
+        # that is a positive hard weight; for step-05 soft-label training it is a
+        # positive soft weight (hard weights may all be zero).
         if config.soft_labels_enabled:
-            raise NotImplementedError(
-                "Soft-label terms are reserved for step 05; keep "
-                "soft_labels_enabled=false for hard-label baselines."
-            )
+            if sum(soft_weights.values()) <= 0:
+                raise ValueError(
+                    "soft_labels_enabled=true requires at least one positive soft weight."
+                )
+        elif sum(hard_weights.values()) <= 0:
+            raise ValueError("At least one hard-label loss weight must be positive.")
 
     def _hard_weights(self) -> dict[str, float]:
         return {
@@ -95,44 +101,75 @@ class MultiBranchClassificationLoss(nn.Module):
             "video": self.config.soft_video_weight,
         }
 
+    def _branch_logits(
+        self, model_output: Mapping[str, Tensor | None], branch: str, batch_size: int
+    ) -> Tensor:
+        output_key = BRANCH_TO_OUTPUT[branch]
+        logits = model_output.get(output_key)
+        if logits is None:
+            raise ValueError(f"Model output {output_key!r} is required for {branch} loss.")
+        if logits.ndim != 2 or logits.shape[0] != batch_size:
+            raise ValueError(
+                f"Expected {output_key} shape [B,C] matching batch, received "
+                f"{tuple(logits.shape)} for batch size {batch_size}."
+            )
+        if not torch.isfinite(logits).all():
+            raise FloatingPointError(f"Non-finite values detected in {output_key}.")
+        return logits
+
     def forward(
         self,
         model_output: Mapping[str, Tensor | None],
         labels: Tensor,
         soft_targets: Mapping[str, Tensor] | None = None,
     ) -> LossResult:
-        del soft_targets
         if labels.ndim != 1 or labels.dtype != torch.long:
             raise ValueError(
                 f"Expected labels as LongTensor[B], received shape={tuple(labels.shape)} "
                 f"dtype={labels.dtype}."
             )
-
+        batch_size = int(labels.shape[0])
         components: dict[str, Tensor] = {}
         weighted_terms: list[Tensor] = []
-        for branch, weight in self._hard_weights().items():
-            if weight == 0:
-                continue
-            output_key = BRANCH_TO_OUTPUT[branch]
-            logits = model_output.get(output_key)
-            if logits is None:
-                raise ValueError(f"Model output {output_key!r} is required for {branch} loss.")
-            if logits.ndim != 2 or logits.shape[0] != labels.shape[0]:
-                raise ValueError(
-                    f"Expected {output_key} shape [B,C] matching labels, received "
-                    f"{tuple(logits.shape)} for {tuple(labels.shape)}."
-                )
-            num_classes = logits.shape[1]
-            if ((labels < 0) | (labels >= num_classes)).any():
-                invalid = labels[(labels < 0) | (labels >= num_classes)].tolist()
-                raise ValueError(
-                    f"Invalid class labels {invalid}; expected IDs in [0,{num_classes - 1}]."
-                )
-            if not torch.isfinite(logits).all():
-                raise FloatingPointError(f"Non-finite values detected in {output_key}.")
-            cross_entropy = F.cross_entropy(logits, labels)
-            components[f"hard_{branch}_ce"] = cross_entropy
-            weighted_terms.append(cross_entropy * weight)
+
+        if self.config.soft_labels_enabled:
+            if soft_targets is None:
+                raise ValueError("soft_labels_enabled=true requires soft_targets per branch.")
+            for branch, weight in self._soft_weights().items():
+                if weight == 0:
+                    continue
+                logits = self._branch_logits(model_output, branch, batch_size)
+                target = soft_targets.get(branch)
+                if target is None:
+                    raise ValueError(f"Missing soft target distribution for {branch}.")
+                if target.shape != logits.shape:
+                    raise ValueError(
+                        f"Soft target for {branch} has shape {tuple(target.shape)}, "
+                        f"expected {tuple(logits.shape)}."
+                    )
+                target = target.to(dtype=logits.dtype)
+                if not torch.isfinite(target).all():
+                    raise FloatingPointError(f"Non-finite soft target detected for {branch}.")
+                # KL(target || pred): forward KL so the branch matches the human
+                # vote distribution. batchmean divides by batch size (proper KL scale).
+                log_pred = F.log_softmax(logits, dim=-1)
+                kl = F.kl_div(log_pred, target, reduction="batchmean")
+                components[f"soft_{branch}_kl"] = kl
+                weighted_terms.append(kl * weight)
+        else:
+            for branch, weight in self._hard_weights().items():
+                if weight == 0:
+                    continue
+                logits = self._branch_logits(model_output, branch, batch_size)
+                num_classes = logits.shape[1]
+                if ((labels < 0) | (labels >= num_classes)).any():
+                    invalid = labels[(labels < 0) | (labels >= num_classes)].tolist()
+                    raise ValueError(
+                        f"Invalid class labels {invalid}; expected IDs in [0,{num_classes - 1}]."
+                    )
+                cross_entropy = F.cross_entropy(logits, labels)
+                components[f"hard_{branch}_ce"] = cross_entropy
+                weighted_terms.append(cross_entropy * weight)
 
         total = torch.stack(weighted_terms).sum()
         if not torch.isfinite(total):

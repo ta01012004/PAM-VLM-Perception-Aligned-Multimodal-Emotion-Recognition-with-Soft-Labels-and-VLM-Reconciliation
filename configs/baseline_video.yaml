@@ -20,11 +20,11 @@ data:
 training:
   epochs: 30
   batch_size: 8
-  num_workers: 4
+  num_workers: 12
   gradient_accumulation_steps: 4
   amp: true
   max_grad_norm: 1.0
-  early_stopping_patience: 6
+  early_stopping_patience: 0
   primary_metric: macro_f1
 
 optimizer:
