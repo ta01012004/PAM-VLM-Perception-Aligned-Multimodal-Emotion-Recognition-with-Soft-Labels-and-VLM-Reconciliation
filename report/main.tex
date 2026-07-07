@@ -200,11 +200,7 @@ six-class classifier;
 
 \begin{figure}[t]
   \centering
-  \placeholder{\columnwidth}{Architecture diagram: 3-tier PAM-VLM.\\
-    Left: WavLM audio encoder + projector.\\
-    Middle: EfficientNet per-frame + temporal Transformer.\\
-    Right: Cross-attention fusion, gated pooling,\\
-    classifier heads, and optional Qwen+LoRA branch.}
+  \includegraphics[width=\columnwidth]{architecture.png}
   \caption{PAM-VLM architecture. Frozen encoders are shown in gray.
     The fusion head is the primary metric source; the VLM branch
     (dashed) is optional and disabled during baseline training.}
