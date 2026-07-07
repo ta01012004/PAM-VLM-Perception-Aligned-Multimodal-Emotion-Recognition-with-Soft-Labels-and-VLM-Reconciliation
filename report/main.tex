@@ -144,10 +144,8 @@ identity rather than affective content.
 
 \begin{table}[t]
 \centering
-\caption{Published CREMA-D results and evaluation protocol.
-  $\dagger$~random/augment-before-split (excluded from comparison).
+\caption{Published CREMA-D results under actor/speaker-independent evaluation protocol.
   $\star$~actor/speaker-independent confirmed.
-  $\ddagger$~$<$6 emotion classes.
   $\circ$~protocol unspecified.
   Scores: Acc unless noted (UAR\,=\,unweighted avg.\ recall; F1\,=\,macro-F1).}
 \label{tab:benchmark}
@@ -156,11 +154,6 @@ identity rather than affective content.
 \begin{tabular}{lccc}
 \toprule
 \textbf{Method (Year)} & \textbf{Mod.} & \textbf{Split} & \textbf{Score} \\
-\midrule
-\multicolumn{4}{l}{\textit{Not included — protocol issues:}} \\
-Hybrid DL+FE~(2025)          & Au  & Rnd$\dagger$        & 95.1\% \\
-Transformer-CNN~(2025)        & Au  & Rnd$\dagger\ddagger$& 90.0\% \\
-Spectral+Attn~(2025)          & Au  & Rnd$\dagger$        & 89.3\% \\
 \midrule
 \multicolumn{4}{l}{\textit{Actor/speaker-independent evaluation:}} \\
 Human ceiling~\cite{cao2014crema}      & A+V & Human         & $\sim$63\% \\
@@ -274,10 +267,7 @@ differs across the three conditions---disagreement that hard labels discard.
 
 \begin{figure}[t]
   \centering
-  \placeholder{\columnwidth}{Soft-label example: bar charts for one clip,\\
-    showing vote distributions under voice-only (condition 1),\\
-    face-only (condition 2), and AV (condition 3).\\
-    X-axis: 6 emotion classes. Y-axis: probability.}
+  \includegraphics[width=\columnwidth]{softlabel_example.png}
   \caption{Per-modality vote distributions for one example clip.
     Hard-label supervision would collapse all three bars to the majority class,
     discarding the inter-condition disagreement used by PAM-VLM.}
@@ -367,17 +357,19 @@ job completion.}
 
 \begin{table}[t]
 \centering
-\caption{Result table (pending). Best numbers in \textbf{bold}.}
+\caption{Actor-independent \textbf{test-set} results (901 clips), best epoch
+  selected on validation. All models use frozen encoders and augmentation.
+  Best in each column in \textbf{bold}. Rows marked --- are not yet run.}
 \label{tab:results}
 \small
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Run} & \textbf{Macro-F1} & \textbf{UAR} & \textbf{Acc.} & \textbf{ECE} \\
 \midrule
-Audio-only          & ---  & ---  & ---  & ---  \\
-Video-only          & ---  & ---  & ---  & ---  \\
-Fusion (hard label) & ---  & ---  & ---  & ---  \\
-Fusion (soft label) & ---  & ---  & ---  & ---  \\
+Audio-only          & 0.684 & 0.683 & 0.683 & 0.059 \\
+Video-only          & 0.488 & 0.498 & 0.502 & 0.384 \\
+Fusion (hard label) & 0.680 & 0.693 & 0.689 & 0.091 \\
+Fusion (soft label) & \textbf{0.700} & \textbf{0.712} & \textbf{0.711} & \textbf{0.053} \\
 \quad w/o audio KL  & ---  & ---  & ---  & ---  \\
 \quad w/o video KL  & ---  & ---  & ---  & ---  \\
 + VLM reconciler    & ---  & ---  & ---  & ---  \\
@@ -398,10 +390,9 @@ capability the deterministic classifier structurally cannot provide.
 
 \begin{figure}[t]
   \centering
-  \placeholder{\columnwidth}{Confusion matrix (6×6) on test set.\\
-    Rows: true labels. Columns: predicted labels.\\
-    To be filled after training.}
-  \caption{Confusion matrix on the actor-independent test set (pending).}
+  \includegraphics[width=\columnwidth]{test_confusion_matrix_norm.png}
+  \caption{Row-normalised confusion matrix of the soft-label (distillation)
+    fusion model on the actor-independent test set.}
   \label{fig:cm}
 \end{figure}
 

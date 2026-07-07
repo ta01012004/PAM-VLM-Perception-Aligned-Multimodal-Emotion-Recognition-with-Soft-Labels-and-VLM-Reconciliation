@@ -5,6 +5,20 @@
   "face_detector": "opencv_haar",
   "face_margin": 0.15,
   "augmentation": {
-    "enabled": true
+    "enabled": true,
+    "audio": {
+      "noise_std": 0.005,
+      "gain_min": 0.9,
+      "gain_max": 1.1,
+      "max_shift_frac": 0.1,
+      "polarity_prob": 0.5,
+      "apply_prob": 0.8
+    },
+    "video": {
+      "flip_prob": 0.5,
+      "brightness": 0.2,
+      "contrast": 0.2,
+      "apply_prob": 0.8
+    }
   }
 }

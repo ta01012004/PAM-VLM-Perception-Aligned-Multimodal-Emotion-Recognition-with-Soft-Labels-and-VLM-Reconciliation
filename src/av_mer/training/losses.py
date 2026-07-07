@@ -132,9 +132,30 @@ class MultiBranchClassificationLoss(nn.Module):
         components: dict[str, Tensor] = {}
         weighted_terms: list[Tensor] = []
 
+        def add_hard_terms() -> None:
+            for branch, weight in self._hard_weights().items():
+                if weight == 0:
+                    continue
+                logits = self._branch_logits(model_output, branch, batch_size)
+                num_classes = logits.shape[1]
+                if ((labels < 0) | (labels >= num_classes)).any():
+                    invalid = labels[(labels < 0) | (labels >= num_classes)].tolist()
+                    raise ValueError(
+                        f"Invalid class labels {invalid}; expected IDs in [0,{num_classes - 1}]."
+                    )
+                cross_entropy = F.cross_entropy(logits, labels)
+                components[f"hard_{branch}_ce"] = cross_entropy
+                weighted_terms.append(cross_entropy * weight)
+
         if self.config.soft_labels_enabled:
             if soft_targets is None:
                 raise ValueError("soft_labels_enabled=true requires soft_targets per branch.")
+            # Distillation-style objective: keep the hard cross-entropy terms so the
+            # argmax stays sharp/correct, and add the per-modality KL terms so each
+            # branch also matches the human vote distribution (calibration + LDL).
+            # Pure-KL training on very soft CREMA-D votes collapses the argmax, so
+            # the CE anchor is required for a usable classifier.
+            add_hard_terms()
             for branch, weight in self._soft_weights().items():
                 if weight == 0:
                     continue
@@ -157,19 +178,7 @@ class MultiBranchClassificationLoss(nn.Module):
                 components[f"soft_{branch}_kl"] = kl
                 weighted_terms.append(kl * weight)
         else:
-            for branch, weight in self._hard_weights().items():
-                if weight == 0:
-                    continue
-                logits = self._branch_logits(model_output, branch, batch_size)
-                num_classes = logits.shape[1]
-                if ((labels < 0) | (labels >= num_classes)).any():
-                    invalid = labels[(labels < 0) | (labels >= num_classes)].tolist()
-                    raise ValueError(
-                        f"Invalid class labels {invalid}; expected IDs in [0,{num_classes - 1}]."
-                    )
-                cross_entropy = F.cross_entropy(logits, labels)
-                components[f"hard_{branch}_ce"] = cross_entropy
-                weighted_terms.append(cross_entropy * weight)
+            add_hard_terms()
 
         total = torch.stack(weighted_terms).sum()
         if not torch.isfinite(total):

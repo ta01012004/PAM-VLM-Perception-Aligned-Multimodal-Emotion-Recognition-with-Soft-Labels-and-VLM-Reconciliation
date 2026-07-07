@@ -34,10 +34,10 @@
     "weight_decay": 0.01
   },
   "output_root": "artifacts/checkpoints",
-  "run_id": "20260705-090942_wavlm-effb0_audio_s42_actor-v1",
+  "run_id": "20260706-170357_wavlm-effb0_audio_s42_actor-v1",
   "run_name": "wavlm-effb0_audio_s42_actor-v1",
   "seed": 42,
-  "slurm_job_id": "76419",
+  "slurm_job_id": "76499",
   "training": {
     "amp": true,
     "batch_size": 8,

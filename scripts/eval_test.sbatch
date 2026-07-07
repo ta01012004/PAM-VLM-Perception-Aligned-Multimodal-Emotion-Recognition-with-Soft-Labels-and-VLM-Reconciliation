@@ -24,12 +24,20 @@ export PYTHONPATH="${PWD}/src:${PWD}/scripts:${PYTHONPATH:-}"
 nvidia-smi
 python -c "import torch; print('cuda available:', torch.cuda.is_available(), '| device:', torch.cuda.get_device_name(0))"
 
-# Evaluate every completed baseline on the frozen TEST set, one run at a time.
-RUNS=(
-  "artifacts/checkpoints/20260705-090942_wavlm-effb0_audio_s42_actor-v1"
-  "artifacts/checkpoints/20260705-053736_wavlm-effb0_xattn_s42_actor-v1"
-  "artifacts/checkpoints/20260705-123801_wavlm-effb0_video_s42_actor-v1"
-)
+# Evaluate the latest completed run of each type on the frozen TEST set, so the
+# augmented retrains are picked automatically (newest run dir per pattern).
+RUNS=()
+add_latest() {  # $1 = name substring; xattn must not match the softlabel runs
+  for d in $(ls -td artifacts/checkpoints/*"$1"*/ 2>/dev/null); do
+    if [ "$1" = "xattn" ]; then case "$d" in *softlabel*) continue;; esac; fi
+    if [ -f "${d%/}/checkpoints/best.pt" ]; then RUNS+=("${d%/}"); return; fi
+  done
+}
+add_latest audio
+add_latest xattn
+add_latest video
+add_latest softlabel
+
 for run in "${RUNS[@]}"; do
   echo "=== TEST EVAL: ${run} ==="
   srun python scripts/eval_test.py --run-dir "${run}"

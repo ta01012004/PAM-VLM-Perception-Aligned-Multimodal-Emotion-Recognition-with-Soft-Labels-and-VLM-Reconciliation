@@ -168,3 +168,38 @@ def test_soft_label_requires_positive_soft_weight() -> None:
             )
         )
 
+
+def test_combined_hard_ce_and_soft_kl_sums_both_terms() -> None:
+    # Distillation mode: positive hard AND soft weights -> total includes both
+    # hard_*_ce and soft_*_kl components (CE anchors argmax, KL adds calibration).
+    criterion = MultiBranchClassificationLoss(
+        LossConfig(
+            hard_fusion_weight=0.6,
+            hard_audio_weight=0.2,
+            hard_video_weight=0.2,
+            soft_labels_enabled=True,
+            soft_fusion_weight=0.3,
+            soft_audio_weight=0.1,
+            soft_video_weight=0.1,
+        )
+    )
+    logits = torch.randn(4, 6)
+    output = {"logits": logits, "audio_logits": logits.clone(), "video_logits": logits.clone()}
+    labels = torch.tensor([0, 1, 2, 3], dtype=torch.long)
+    target = torch.softmax(torch.randn(4, 6), dim=-1)
+    soft = {"fusion": target, "audio": target, "video": target}
+    result = criterion(output, labels, soft)
+    assert {"hard_fusion_ce", "hard_audio_ce", "hard_video_ce",
+            "soft_fusion_kl", "soft_audio_kl", "soft_video_kl"}.issubset(result.components)
+    assert torch.isfinite(result.total)
+    # total must equal the weighted sum of all six terms.
+    expected = (
+        0.6 * result.components["hard_fusion_ce"]
+        + 0.2 * result.components["hard_audio_ce"]
+        + 0.2 * result.components["hard_video_ce"]
+        + 0.3 * result.components["soft_fusion_kl"]
+        + 0.1 * result.components["soft_audio_kl"]
+        + 0.1 * result.components["soft_video_kl"]
+    )
+    assert result.total.item() == pytest.approx(expected.item(), rel=1e-5)
+

@@ -1,6 +1,6 @@
 {
   "num_classes": 6,
-  "head_dropout": 0.1,
+  "head_dropout": 0.3,
   "audio": {
     "encoder_id": "microsoft/wavlm-base-plus",
     "backend": "transformers",

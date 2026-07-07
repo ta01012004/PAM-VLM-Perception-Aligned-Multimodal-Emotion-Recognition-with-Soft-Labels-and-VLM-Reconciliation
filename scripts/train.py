@@ -21,6 +21,7 @@ import yaml
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
 
+from av_mer.data.augment import build_augmenters  # noqa: E402
 from av_mer.data.collate import collate_av_batch  # noqa: E402
 from av_mer.data.dataset import CremaDataset, DatasetConfig  # noqa: E402
 from av_mer.data.filename_parser import LABEL_TO_ID  # noqa: E402
@@ -73,13 +74,27 @@ def _make_loader(
     loader_config: DatasetConfig,
     batch_size: int,
     num_workers: int,
+    seed: int,
 ) -> DataLoader:
+    # Augmentation is applied to the TRAIN split only, to curb the severe
+    # train-set memorisation seen without it (fusion/video train F1 ~1.0).
+    audio_augment = None
+    video_augment = None
+    if split == "train":
+        loader_json = json.loads(
+            _repo_path(str(data_config["loader_config"])).read_text(encoding="utf-8")
+        )
+        audio_augment, video_augment = build_augmenters(
+            loader_json.get("augmentation"), seed=seed
+        )
     dataset = CremaDataset(
         manifest,
         _soft_label_paths(data_config),
         _repo_path(str(data_config["raw_root"])),
         loader_config,
         split=split,
+        audio_augment=audio_augment,
+        video_augment=video_augment,
         decode_error_report=_repo_path(str(data_config["decode_error_report"])),
     )
     return DataLoader(
@@ -149,6 +164,7 @@ def main() -> int:
         loader_config=loader_config,
         batch_size=int(training_config["batch_size"]),
         num_workers=int(training_config["num_workers"]),
+        seed=seed,
     )
     val_loader = _make_loader(
         manifest=_repo_path(str(data_config["val_manifest"])),
@@ -157,6 +173,7 @@ def main() -> int:
         loader_config=loader_config,
         batch_size=int(training_config["batch_size"]),
         num_workers=int(training_config["num_workers"]),
+        seed=seed,
     )
 
     model_config = PamVlmConfig.from_json(_repo_path(str(config["model_config"])))

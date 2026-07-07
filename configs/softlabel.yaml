@@ -33,6 +33,6 @@ optimizer:
   weight_decay: 0.01
 
 loss:
-  hard_weights: {fusion: 0.0, audio: 0.0, video: 0.0}
+  hard_weights: {fusion: 0.6, audio: 0.2, video: 0.2}
   soft_labels_enabled: true
-  soft_weights: {fusion: 0.6, audio: 0.2, video: 0.2}
+  soft_weights: {fusion: 0.3, audio: 0.1, video: 0.1}

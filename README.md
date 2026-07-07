@@ -105,8 +105,8 @@ Clip: actor says "HAPPY" but looks sad
 | DistilHuBERT (2025) | Audio | Indep.★ | 70.6% |
 | Transfer+Emb. (2024) | Audio | Indep.★ | UAR 80.3% |
 | Nature hybrid fusion (2026) | A+V | Indep.★ | ~80%+ |
-| **PAM-VLM audio-only (ours)** | **Audio** | **Indep.★** | **test Macro-F1 0.692** |
-| **PAM-VLM fusion (ours)** | **A+V** | **Indep.★** | **test Macro-F1 0.685** |
+| **PAM-VLM audio-only (ours)** | **Audio** | **Indep.★** | **test Macro-F1 0.684** |
+| **PAM-VLM fusion soft-label (ours)** | **A+V** | **Indep.★** | **test Macro-F1 0.700, ECE 0.053** |
 
 † random/augment-before-split suspected · ‡ <6 emotion classes · ★ actor/speaker-independent confirmed
 

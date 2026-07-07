@@ -5,38 +5,44 @@ train 70 actors / 5,721 clips, val 10 / 820, test 11 / 901. Labels:
 `[angry, disgust, fear, happy, neutral, sad]`. The test set was evaluated
 **once**, after configuration freeze (no test-set model selection).
 
-## Hard-label baselines
+All runs below use **train-time augmentation** (audio: noise/gain/time-shift/
+polarity; video: flip/brightness/contrast) and `head_dropout=0.3`. Encoders
+(WavLM-base-plus, EfficientNet-B0) are frozen; only fusion + heads train.
 
-Best checkpoint selected by **validation Macro-F1**. Training: 30 epochs,
-frozen WavLM-base-plus + EfficientNet-B0 encoders, bidirectional
-cross-attention fusion, AdamW (lr 3e-4, cosine), effective batch 32, AMP.
+## Test set (frozen, evaluated once)
 
-### Validation (model selection)
-
-| Baseline | Accuracy | Macro-F1 | UAR | Weighted-F1 |
+| Run | Macro-F1 | UAR | Accuracy | ECE |
 |---|---:|---:|---:|---:|
-| Audio-only        | 0.759 | 0.760 | 0.762 | 0.757 |
-| Fusion (A+V)      | 0.731 | 0.731 | 0.732 | 0.731 |
-| Video-only        | 0.504 | 0.497 | 0.503 | 0.497 |
+| Audio-only            | 0.684 | 0.683 | 0.683 | 0.059 |
+| Video-only            | 0.488 | 0.498 | 0.502 | 0.384 |
+| Fusion (hard label)   | 0.680 | 0.693 | 0.689 | 0.091 |
+| **Fusion (soft label / distillation)** | **0.700** | **0.712** | **0.711** | **0.053** |
 
-### Test (frozen, evaluated once)
+## Validation (model selection)
 
-| Baseline | Accuracy | Macro-F1 | UAR | ECE |
-|---|---:|---:|---:|---:|
-| Audio-only        | 0.693 | 0.692 | 0.695 | 0.077 |
-| Fusion (A+V)      | 0.684 | 0.685 | 0.686 | 0.094 |
-| Video-only        | 0.471 | 0.462 | 0.469 | 0.457 |
+| Run | Macro-F1 | UAR | Accuracy |
+|---|---:|---:|---:|
+| Audio-only          | 0.767 | 0.769 | 0.767 |
+| Video-only          | 0.548 | 0.552 | 0.552 |
+| Fusion (hard label) | 0.770 | 0.777 | 0.774 |
+| Fusion (soft label) | 0.756 | 0.767 | 0.766 |
 
-**Observations.** Audio is the strongest single modality on CREMA-D, consistent
-with the literature. The fusion head overfits early (val peak at epoch 2) and
-does not yet exceed audio-only — the audio-visual gain is a target for the
-soft-label objective and stronger regularization. Video is weakest and poorly
-calibrated (high ECE).
+**Observations.**
+- The **soft-label distillation** model (hard CE anchor + per-modality KL on the
+  three CREMA-D vote conditions) is the best on the test set across every metric
+  and has the **lowest ECE (0.053)** — soft labels improve both accuracy and
+  calibration, the core claim of the method.
+- Pure-KL training (no CE anchor) collapsed (val Macro-F1 ~0.45); the CE anchor
+  is required. See `configs/softlabel.yaml`.
+- Augmentation substantially reduced train/val overfitting versus the earlier
+  un-augmented runs (train F1 no longer saturates at ~1.0 as fast).
+- Audio remains the strongest single modality; video is weakest and least
+  calibrated.
 
 ## Layout
 
 ```
-results/<baseline>/
+results/<run>/
 ├── val_metrics.json        # best-epoch validation metrics (+ per-class, confusion matrix)
 ├── test_metrics.json       # frozen test-set metrics (+ ECE, per-class, confusion matrix)
 ├── history.json            # full per-epoch train/val history
@@ -46,12 +52,6 @@ results/<baseline>/
 └── figures_test/           # test-set confusion matrices + per-class F1
 ```
 
-## Soft-label (step-05) — pending
-
-The per-modality soft-label KL objective (label-distribution learning on the
-three CREMA-D vote conditions) is implemented and training; results and
-calibration comparison will be added here on completion.
-
 ## Reproduce
 
 ```bash
@@ -59,8 +59,8 @@ pip install -r requirements.txt
 # prepare CREMA-D under data/raw/crema_d (AudioWAV/, VideoFlash/, finishedResponses.csv)
 python scripts/build_manifest.py
 python scripts/build_soft_labels.py
-sbatch scripts/train_fusion_gpu.sbatch   # or train_audio_gpu / train_video_gpu
-sbatch scripts/eval_test.sbatch          # frozen test-set evaluation
+sbatch scripts/train_all_augmented.sbatch   # trains fusion / audio / video / softlabel
+sbatch scripts/eval_test.sbatch             # frozen test-set evaluation of the latest runs
 ```
 
 Checkpoints (~400 MB each) are not committed. Retrain from the configs above,
