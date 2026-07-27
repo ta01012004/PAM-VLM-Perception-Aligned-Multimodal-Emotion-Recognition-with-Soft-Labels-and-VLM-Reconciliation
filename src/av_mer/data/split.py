@@ -39,6 +39,74 @@ class ActorSplits:
         return {"train": self.train, "val": self.val, "test": self.test}
 
 
+@dataclass(frozen=True, slots=True)
+class ClipSplitConfig:
+    """Deterministic stratified clip split; actor overlap is allowed."""
+
+    train_ratio: float
+    val_ratio: float
+    test_ratio: float
+    seed: int
+
+
+@dataclass(frozen=True, slots=True)
+class ClipSplits:
+    train: tuple[str, ...]
+    val: tuple[str, ...]
+    test: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, tuple[str, ...]]:
+        return {"train": self.train, "val": self.val, "test": self.test}
+
+
+def _apportion(total: int, weights: Sequence[float]) -> list[int]:
+    raw = [total * weight for weight in weights]
+    counts = [int(value) for value in raw]
+    for index in sorted(
+        range(len(weights)), key=lambda item: (raw[item] - counts[item], -item), reverse=True
+    )[: total - sum(counts)]:
+        counts[index] += 1
+    return counts
+
+
+def split_clips_by_label(
+    clip_labels: Iterable[tuple[str, str]], config: ClipSplitConfig
+) -> ClipSplits:
+    """Split clips by class while matching global ratios as closely as possible."""
+
+    ratios = (config.train_ratio, config.val_ratio, config.test_ratio)
+    if any(ratio <= 0 for ratio in ratios) or abs(sum(ratios) - 1.0) > 1e-9:
+        raise ValueError(f"Clip split ratios must be positive and sum to 1, got {ratios}.")
+    by_label: dict[str, list[str]] = {}
+    seen: set[str] = set()
+    for clip_id, label in clip_labels:
+        if clip_id in seen:
+            raise ValueError(f"Duplicate clip ID in split input: {clip_id}.")
+        seen.add(clip_id)
+        by_label.setdefault(label, []).append(clip_id)
+    if not seen:
+        raise ValueError("Cannot split an empty clip collection.")
+
+    rng = random.Random(config.seed)
+    output = {name: [] for name in SPLIT_NAMES}
+    for label in sorted(by_label):
+        clips = sorted(by_label[label])
+        rng.shuffle(clips)
+        counts = _apportion(len(clips), ratios)
+        start = 0
+        for split_name, count in zip(SPLIT_NAMES, counts, strict=True):
+            output[split_name].extend(clips[start : start + count])
+            start += count
+
+    splits = ClipSplits(**{name: tuple(sorted(output[name])) for name in SPLIT_NAMES})
+    split_sets = {name: set(ids) for name, ids in splits.as_dict().items()}
+    if any(split_sets[a] & split_sets[b] for a, b in (("train", "val"), ("train", "test"), ("val", "test"))):
+        raise AssertionError("Clip leakage detected across clip-level splits.")
+    if set().union(*split_sets.values()) != seen:
+        raise AssertionError("Clip split is incomplete.")
+    return splits
+
+
 def split_actors(actor_ids: Iterable[int], config: ActorSplitConfig) -> ActorSplits:
     """Deterministically allocate unique actor IDs using exact configured counts."""
 
@@ -101,4 +169,3 @@ def compute_manifest_checksum(rows: Sequence[Mapping[str, Any]]) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
-

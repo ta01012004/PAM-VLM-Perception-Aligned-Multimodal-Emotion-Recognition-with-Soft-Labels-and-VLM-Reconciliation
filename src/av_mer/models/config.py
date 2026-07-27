@@ -17,6 +17,7 @@ class AudioEncoderConfig:
     freeze_backbone: bool
     dropout: float
     tiny_stride: int
+    unfreeze_last_n_layers: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class VideoEncoderConfig:
     dropout: float
     freeze_backbone: bool
     pretrained: bool
+    unfreeze_last_n_stages: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +39,8 @@ class FusionConfig:
     hidden_dim: int
     num_heads: int
     dropout: float
+    audio_gate_bias: float = 0.0
+    modality_dropout: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,4 +75,3 @@ def _typed_section(values: Mapping[str, Any], key: str) -> dict[str, Any]:
     if not isinstance(section, Mapping):
         raise TypeError(f"Config section {key!r} must be an object.")
     return dict(section)
-

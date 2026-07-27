@@ -8,6 +8,7 @@ data/splits/
 artifacts/checkpoints/
 artifacts/pretrained/
 artifacts/exports/
+artifacts/features/
 
 # Logs and experiment outputs
 logs/
@@ -21,6 +22,21 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# LaTeX build products (the final report PDF is tracked explicitly)
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.log
+report/*.out
+
+# Local duplicate exports
+/main.pdf
+/report/Xử_lí_Tiếng_Nói.pdf
+
+# Local planning bundles superseded by repository documentation
+/av_mer_codex_claude_agent_kit/
+/*.docx
 
 # Environment files
 .env

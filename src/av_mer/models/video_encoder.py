@@ -60,6 +60,8 @@ class VideoEncoder(nn.Module):
             raise ValueError(
                 f"Unknown video backend {config.backend!r} for {config.backbone_id!r}."
             )
+        self._unfrozen_stages: list[nn.Module] = []
+        self._configure_backbone_trainability()
         self.projector = nn.Sequential(
             nn.Linear(config.backbone_dim, config.hidden_dim),
             nn.LayerNorm(config.hidden_dim),
@@ -78,14 +80,42 @@ class VideoEncoder(nn.Module):
             num_layers=config.temporal_layers,
             enable_nested_tensor=False,
         )
-        if config.freeze_backbone:
+
+    def _configure_backbone_trainability(self) -> None:
+        count = self.config.unfreeze_last_n_stages
+        if count < 0:
+            raise ValueError("unfreeze_last_n_stages must be non-negative.")
+        if self.config.freeze_backbone:
+            if count:
+                raise ValueError("A frozen video backbone cannot unfreeze feature stages.")
             self.backbone.requires_grad_(False)
             self.backbone.eval()
+            return
+        if count == 0:
+            return
+        features = getattr(self.backbone, "features", None)
+        stages = list(features.children()) if features is not None else []
+        if count > len(stages):
+            raise ValueError(
+                f"Requested {count} trainable video stages, backbone exposes {len(stages)}."
+            )
+        self.backbone.requires_grad_(False)
+        self._unfrozen_stages = stages[-count:]
+        for stage in self._unfrozen_stages:
+            stage.requires_grad_(True)
+
+    @property
+    def backbone_is_trainable(self) -> bool:
+        return any(parameter.requires_grad for parameter in self.backbone.parameters())
 
     def train(self, mode: bool = True) -> "VideoEncoder":
         super().train(mode)
-        if self.config.freeze_backbone:
+        if not self.backbone_is_trainable:
             self.backbone.eval()
+        elif self._unfrozen_stages:
+            self.backbone.eval()
+            for stage in self._unfrozen_stages:
+                stage.train(mode)
         return self
 
     def forward(self, video_values: Tensor, video_mask: Tensor) -> tuple[Tensor, Tensor]:
@@ -108,7 +138,7 @@ class VideoEncoder(nn.Module):
             0.0,
         )
         flat_frames = masked_video.flatten(0, 1)
-        context = torch.no_grad() if self.config.freeze_backbone else nullcontext()
+        context = torch.no_grad() if not self.backbone_is_trainable else nullcontext()
         with context:
             frame_features = self.backbone(flat_frames)
         if frame_features.ndim != 2 or frame_features.shape[1] != self.config.backbone_dim:
@@ -120,4 +150,3 @@ class VideoEncoder(nn.Module):
         tokens = self.temporal_encoder(tokens, src_key_padding_mask=~video_mask)
         tokens = tokens.masked_fill(~video_mask.unsqueeze(-1), 0.0)
         return tokens, video_mask
-

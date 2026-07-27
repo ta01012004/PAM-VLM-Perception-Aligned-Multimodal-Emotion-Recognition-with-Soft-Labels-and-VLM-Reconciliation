@@ -3,8 +3,10 @@ import pytest
 from av_mer.data.split import (
     ActorSplitConfig,
     ActorSplits,
+    ClipSplitConfig,
     assert_actor_disjointness,
     compute_manifest_checksum,
+    split_clips_by_label,
     split_actors,
 )
 
@@ -48,3 +50,21 @@ def test_manifest_checksum_is_independent_of_row_order() -> None:
 
     assert compute_manifest_checksum(rows) == compute_manifest_checksum(list(reversed(rows)))
 
+
+def test_clip_split_is_seeded_stratified_and_complete() -> None:
+    clips = [(f"angry-{i}", "angry") for i in range(10)] + [
+        (f"sad-{i}", "sad") for i in range(10)
+    ]
+    config = ClipSplitConfig(0.8, 0.1, 0.1, seed=42)
+
+    first = split_clips_by_label(clips, config)
+    second = split_clips_by_label(reversed(clips), config)
+
+    assert first == second
+    assert len(first.train) == 16
+    assert len(first.val) == 2
+    assert len(first.test) == 2
+    assert {clip.split("-")[0] for clip in first.val} == {"angry", "sad"}
+    assert set(first.train).isdisjoint(first.val)
+    assert set(first.train).isdisjoint(first.test)
+    assert set(first.val).isdisjoint(first.test)

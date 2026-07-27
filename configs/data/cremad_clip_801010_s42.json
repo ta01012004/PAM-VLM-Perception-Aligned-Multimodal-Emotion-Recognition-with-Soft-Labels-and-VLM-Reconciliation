@@ -1,0 +1,12 @@
+{
+  "protocol_id": "cremad-6class-clip-801010-s42-v2",
+  "split_unit": "clip",
+  "seed": 42,
+  "split_ratios": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  },
+  "stratify_by": "emotion",
+  "laplace_alpha": 1.0
+}

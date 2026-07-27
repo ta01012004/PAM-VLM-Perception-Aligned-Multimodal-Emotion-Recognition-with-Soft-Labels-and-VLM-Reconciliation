@@ -180,11 +180,35 @@ def main() -> int:
     model = PamVlmModel(model_config)
     device = torch.device("cuda", torch.cuda.current_device())
     model.to(device)
-    trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer_config = config["optimizer"]
+    backbone_parameters = [
+        parameter
+        for backbone in (model.audio_encoder.backbone, model.video_encoder.backbone)
+        for parameter in backbone.parameters()
+        if parameter.requires_grad
+    ]
+    backbone_ids = {id(parameter) for parameter in backbone_parameters}
+    task_parameters = [
+        parameter
+        for parameter in model.parameters()
+        if parameter.requires_grad and id(parameter) not in backbone_ids
+    ]
+    parameter_groups: list[dict[str, Any]] = [
+        {"params": task_parameters, "lr": float(optimizer_config["learning_rate"])}
+    ]
+    if backbone_parameters:
+        parameter_groups.append(
+            {
+                "params": backbone_parameters,
+                "lr": float(
+                    optimizer_config.get(
+                        "backbone_learning_rate", optimizer_config["learning_rate"]
+                    )
+                ),
+            }
+        )
     optimizer = torch.optim.AdamW(
-        trainable_parameters,
-        lr=float(optimizer_config["learning_rate"]),
+        parameter_groups,
         weight_decay=float(optimizer_config["weight_decay"]),
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(

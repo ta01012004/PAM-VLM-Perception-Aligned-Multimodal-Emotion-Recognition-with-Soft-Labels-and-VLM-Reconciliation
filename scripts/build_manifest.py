@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build paired CREMA-D manifests, actor splits, and vote soft labels."""
+"""Build paired CREMA-D manifests, configurable splits, and vote soft labels."""
 
 from __future__ import annotations
 
@@ -20,8 +20,10 @@ if str(SOURCE_ROOT) not in sys.path:
 from av_mer.data.filename_parser import LABELS, parse_cremad_filename  # noqa: E402
 from av_mer.data.split import (  # noqa: E402
     ActorSplitConfig,
+    ClipSplitConfig,
     build_actor_to_split,
     compute_manifest_checksum,
+    split_clips_by_label,
     split_actors,
 )
 from av_mer.data.votes import aggregate_votes  # noqa: E402
@@ -48,28 +50,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=REPOSITORY_ROOT / "configs/data/cremad.json",
+        default=REPOSITORY_ROOT / "configs/data/cremad_clip_801010_s42.json",
         help="Data split and smoothing configuration",
     )
     parser.add_argument("--seed", type=int, default=None, help="Override configured split seed")
     return parser.parse_args()
 
 
-def load_config(path: Path, seed_override: int | None) -> tuple[ActorSplitConfig, float]:
+def load_config(path: Path, seed_override: int | None) -> tuple[dict[str, Any], float]:
     with path.open(encoding="utf-8") as handle:
         config = json.load(handle)
     try:
-        actor_counts = config["actor_counts"]
-        split_config = ActorSplitConfig(
-            train_count=int(actor_counts["train"]),
-            val_count=int(actor_counts["val"]),
-            test_count=int(actor_counts["test"]),
-            seed=int(config["seed"] if seed_override is None else seed_override),
-        )
+        split_unit = str(config.get("split_unit", "actor"))
+        seed = int(config["seed"] if seed_override is None else seed_override)
+        if split_unit == "actor":
+            actor_counts = config["actor_counts"]
+            split_config: ActorSplitConfig | ClipSplitConfig = ActorSplitConfig(
+                train_count=int(actor_counts["train"]),
+                val_count=int(actor_counts["val"]),
+                test_count=int(actor_counts["test"]),
+                seed=seed,
+            )
+        elif split_unit == "clip":
+            ratios = config["split_ratios"]
+            split_config = ClipSplitConfig(
+                train_ratio=float(ratios["train"]),
+                val_ratio=float(ratios["val"]),
+                test_ratio=float(ratios["test"]),
+                seed=seed,
+            )
+        else:
+            raise ValueError(f"Unsupported split_unit {split_unit!r}.")
         alpha = float(config["laplace_alpha"])
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError(f"Invalid CREMA-D config {path}: {error}.") from error
-    return split_config, alpha
+    return {"split_unit": split_unit, "split_config": split_config}, alpha
 
 
 def index_media(directory: Path, suffix: str) -> dict[str, Path]:
@@ -94,7 +109,7 @@ def write_manifest(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def build_manifest(raw_root: Path, output_dir: Path, config_path: Path, seed: int | None) -> None:
-    split_config, alpha = load_config(config_path, seed)
+    split_policy, alpha = load_config(config_path, seed)
     audio_by_clip = index_media(raw_root / "AudioWAV", ".wav")
     video_by_clip = index_media(raw_root / "VideoFlash", ".flv")
     paired_clip_ids = sorted(set(audio_by_clip) & set(video_by_clip))
@@ -114,8 +129,25 @@ def build_manifest(raw_root: Path, output_dir: Path, config_path: Path, seed: in
         raise ValueError(f"No paired CREMA-D clips found under {raw_root}.")
 
     parsed_clips = [parse_cremad_filename(clip_id) for clip_id in paired_clip_ids]
-    actor_splits = split_actors((clip.actor_id for clip in parsed_clips), split_config)
-    actor_to_split = build_actor_to_split(actor_splits)
+    if split_policy["split_unit"] == "actor":
+        actor_splits = split_actors(
+            (clip.actor_id for clip in parsed_clips), split_policy["split_config"]
+        )
+        actor_to_split = build_actor_to_split(actor_splits)
+        clip_to_split = {
+            clip.clip_id: actor_to_split[clip.actor_id]
+            for clip in parsed_clips
+        }
+    else:
+        clip_splits = split_clips_by_label(
+            ((clip.clip_id, clip.emotion) for clip in parsed_clips),
+            split_policy["split_config"],
+        )
+        clip_to_split = {
+            clip_id: split_name
+            for split_name, clip_ids in clip_splits.as_dict().items()
+            for clip_id in clip_ids
+        }
     rows: list[dict[str, Any]] = []
     for clip in parsed_clips:
         rows.append(
@@ -126,18 +158,19 @@ def build_manifest(raw_root: Path, output_dir: Path, config_path: Path, seed: in
                 "emotion_id": clip.emotion_id,
                 "video_path": video_by_clip[clip.clip_id].relative_to(raw_root).as_posix(),
                 "audio_path": audio_by_clip[clip.clip_id].relative_to(raw_root).as_posix(),
-                "split": actor_to_split[clip.actor_id],
+                "split": clip_to_split[clip.clip_id],
                 "sentence_id": clip.sentence_id,
                 "intensity": clip.intensity,
             }
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    for split_name, actor_ids in actor_splits.as_dict().items():
+    for split_name in ("train", "val", "test"):
         split_rows = [row for row in rows if row["split"] == split_name]
+        actor_ids = sorted({int(row["actor_id"]) for row in split_rows})
         write_manifest(output_dir / f"manifest_{split_name}.csv", split_rows)
         with (output_dir / f"actors_{split_name}.json").open("w", encoding="utf-8") as handle:
-            json.dump(list(actor_ids), handle, indent=2)
+            json.dump(actor_ids, handle, indent=2)
             handle.write("\n")
         print(f"split={split_name} clips={len(split_rows)} actors={len(actor_ids)}")
 
@@ -177,4 +210,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

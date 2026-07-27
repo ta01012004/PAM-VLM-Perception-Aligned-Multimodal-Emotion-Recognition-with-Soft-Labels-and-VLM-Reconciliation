@@ -1,0 +1,42 @@
+run_name: pam_highacc_wavlm2_effb0stage2_s42_clip801010-v2
+baseline: fusion
+seed: 42
+output_root: artifacts/checkpoints
+model_config: configs/models/pam_vlm_high_accuracy.json
+
+data:
+  protocol_id: cremad-6class-clip-801010-s42-v2
+  raw_root: data/raw/crema_src
+  train_manifest: data/splits/clip_801010_s42/manifest_train.csv
+  val_manifest: data/splits/clip_801010_s42/manifest_val.csv
+  test_manifest: data/splits/clip_801010_s42/manifest_test.csv
+  split_checksum: data/splits/clip_801010_s42/manifest_checksum.txt
+  label_mapping: data/splits/clip_801010_s42/label_mapping.json
+  loader_config: configs/data/loader.json
+  decode_error_report: data/interim/decode_errors_high_accuracy.csv
+  soft_labels:
+    voice: data/splits/clip_801010_s42/soft_labels_voice.parquet
+    face: data/splits/clip_801010_s42/soft_labels_face.parquet
+    av: data/splits/clip_801010_s42/soft_labels_av.parquet
+
+training:
+  epochs: 40
+  batch_size: 4
+  num_workers: 12
+  gradient_accumulation_steps: 8
+  amp: true
+  max_grad_norm: 1.0
+  early_stopping_patience: 8
+  primary_metric: macro_f1
+
+optimizer:
+  learning_rate: 0.0002
+  backbone_learning_rate: 0.00001
+  minimum_learning_rate: 0.000001
+  weight_decay: 0.01
+
+loss:
+  hard_weights: {fusion: 0.75, audio: 0.20, video: 0.05}
+  soft_labels_enabled: true
+  soft_weights: {fusion: 0.15, audio: 0.05, video: 0.02}
+  label_smoothing: 0.05

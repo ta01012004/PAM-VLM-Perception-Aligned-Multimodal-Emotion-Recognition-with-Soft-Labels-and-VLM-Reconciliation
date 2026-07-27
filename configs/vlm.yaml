@@ -1,0 +1,48 @@
+run_name: pam-vlm_reconciler_lora_s42_clip801010-v2
+seed: 42
+output_root: artifacts/checkpoints
+model_config: configs/models/pam_vlm_high_accuracy.json
+backbone_checkpoint: artifacts/checkpoints/20260723-170138_pam_highacc_wavlm2_effb0stage2_s42_clip801010-v2/checkpoints/best.pt
+
+vlm:
+  model_id: Qwen/Qwen2.5-0.5B-Instruct
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  num_prefix_tokens: 4
+  projector_dropout: 0.10
+  max_new_tokens: 48
+  freeze_base: true
+  prompt_file: configs/prompts/reconciler_label_only.txt
+
+data:
+  protocol_id: cremad-6class-clip-801010-s42-v2
+  raw_root: data/raw/crema_src
+  train_manifest: data/splits/clip_801010_s42/manifest_train.csv
+  val_manifest: data/splits/clip_801010_s42/manifest_val.csv
+  test_manifest: data/splits/clip_801010_s42/manifest_test.csv
+  split_checksum: data/splits/clip_801010_s42/manifest_checksum.txt
+  label_mapping: data/splits/clip_801010_s42/label_mapping.json
+  loader_config: configs/data/loader.json
+  decode_error_report: data/interim/decode_errors_vlm.csv
+  soft_labels:
+    voice: data/splits/clip_801010_s42/soft_labels_voice.parquet
+    face: data/splits/clip_801010_s42/soft_labels_face.parquet
+    av: data/splits/clip_801010_s42/soft_labels_av.parquet
+
+cache:
+  output_dir: artifacts/features/pam_highacc_vlm_full_s42
+  batch_size: 4
+  num_workers: 12
+
+training:
+  epochs: 5
+  batch_size: 4
+  eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  amp: true
+  train_lora: true
+  max_grad_norm: 1.0
+  learning_rate: 0.0002
+  minimum_learning_rate: 0.00001
+  weight_decay: 0.0

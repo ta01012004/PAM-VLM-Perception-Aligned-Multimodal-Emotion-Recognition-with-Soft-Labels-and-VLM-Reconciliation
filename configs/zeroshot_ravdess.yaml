@@ -1,0 +1,33 @@
+run_name: zeroshot_ravdess_pam-vlm_qwen
+seed: 42
+
+backbone_checkpoint: artifacts/checkpoints/20260723-170138_pam_highacc_wavlm2_effb0stage2_s42_clip801010-v2/checkpoints/best.pt
+model_config: configs/models/pam_vlm_high_accuracy.json
+
+data:
+  raw_root: data/raw/ravdess
+  manifest: data/splits/zeroshot_ravdess.csv
+  loader_config: configs/data/loader.json
+  decode_error_report: data/interim/decode_errors_zeroshot_ravdess.csv
+
+vlm:
+  model_id: Qwen/Qwen2.5-0.5B-Instruct
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  num_prefix_tokens: 4
+  max_new_tokens: 24
+  freeze_base: true
+  prompt_file: configs/prompts/reconciler_label_only.txt
+  labels:
+    - angry
+    - disgust
+    - fear
+    - happy
+    - neutral
+    - sad
+
+evaluation:
+  batch_size: 1
+  num_workers: 2
+  output_dir: results/zeroshot_ravdess

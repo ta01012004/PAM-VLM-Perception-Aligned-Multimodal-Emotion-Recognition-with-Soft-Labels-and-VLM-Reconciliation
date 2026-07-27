@@ -45,14 +45,40 @@ class AudioEncoder(nn.Module):
         super().__init__()
         self.config = config
         self.backbone = backbone or self._create_backbone(config)
+        self._unfrozen_layers: list[nn.Module] = []
+        self._configure_backbone_trainability()
         self.projector = nn.Sequential(
             nn.Linear(config.backbone_dim, config.hidden_dim),
             nn.LayerNorm(config.hidden_dim),
             nn.Dropout(config.dropout),
         )
-        if config.freeze_backbone:
+
+    def _configure_backbone_trainability(self) -> None:
+        count = self.config.unfreeze_last_n_layers
+        if count < 0:
+            raise ValueError("unfreeze_last_n_layers must be non-negative.")
+        if self.config.freeze_backbone:
+            if count:
+                raise ValueError("A frozen audio backbone cannot unfreeze transformer layers.")
             self.backbone.requires_grad_(False)
             self.backbone.eval()
+            return
+        if count == 0:
+            return
+        encoder = getattr(self.backbone, "encoder", None)
+        layers = list(getattr(encoder, "layers", []))
+        if count > len(layers):
+            raise ValueError(
+                f"Requested {count} trainable audio layers, backbone exposes {len(layers)}."
+            )
+        self.backbone.requires_grad_(False)
+        self._unfrozen_layers = layers[-count:]
+        for layer in self._unfrozen_layers:
+            layer.requires_grad_(True)
+
+    @property
+    def backbone_is_trainable(self) -> bool:
+        return any(parameter.requires_grad for parameter in self.backbone.parameters())
 
     @staticmethod
     def _create_backbone(config: AudioEncoderConfig) -> nn.Module:
@@ -68,8 +94,12 @@ class AudioEncoder(nn.Module):
 
     def train(self, mode: bool = True) -> "AudioEncoder":
         super().train(mode)
-        if self.config.freeze_backbone:
+        if not self.backbone_is_trainable:
             self.backbone.eval()
+        elif self._unfrozen_layers:
+            self.backbone.eval()
+            for layer in self._unfrozen_layers:
+                layer.train(mode)
         return self
 
     def _run_transformers_backbone(self, values: Tensor, mask: Tensor) -> tuple[Tensor, Tensor]:
@@ -96,7 +126,7 @@ class AudioEncoder(nn.Module):
         if (~audio_mask.any(dim=1)).any():
             raise ValueError("Every audio sample must contain at least one valid position.")
         values = audio_values.masked_fill(~audio_mask, 0.0)
-        context = torch.no_grad() if self.config.freeze_backbone else nullcontext()
+        context = torch.no_grad() if not self.backbone_is_trainable else nullcontext()
         with context:
             if self.config.backend == "tiny":
                 tokens, token_mask = self.backbone(values, audio_mask)
@@ -105,4 +135,3 @@ class AudioEncoder(nn.Module):
         projected = self.projector(tokens)
         projected = projected.masked_fill(~token_mask.unsqueeze(-1), 0.0)
         return projected, token_mask
-

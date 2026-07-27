@@ -72,7 +72,7 @@ def main() -> int:
         cond: _repo_path(str(data_config["soft_labels"][cond])) for cond in ("voice", "face", "av")
     }
     dataset = CremaDataset(
-        _repo_path("data/splits/manifest_test.csv"),
+        _repo_path(str(data_config["test_manifest"])),
         soft_paths,
         _repo_path(str(data_config["raw_root"])),
         loader_config,

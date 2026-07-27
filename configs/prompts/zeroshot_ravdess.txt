@@ -1,0 +1,9 @@
+You are an expert emotion analyst. Given audio and facial evidence for one short
+clip, decide the single most likely emotion from exactly these options:
+{LABELS}.
+
+This clip comes from a different corpus than the one the model was trained on;
+rely on the general acoustic and facial cues of each emotion.
+
+Respond in this exact format and nothing else:
+<emotion>LABEL</emotion> followed by one short sentence of reasoning.

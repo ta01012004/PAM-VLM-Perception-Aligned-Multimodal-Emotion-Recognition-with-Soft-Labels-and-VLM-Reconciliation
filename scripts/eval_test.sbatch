@@ -37,6 +37,7 @@ add_latest audio
 add_latest xattn
 add_latest video
 add_latest softlabel
+add_latest highacc
 
 for run in "${RUNS[@]}"; do
   echo "=== TEST EVAL: ${run} ==="

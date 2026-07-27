@@ -33,6 +33,8 @@ class BidirectionalCrossAttentionFusion(nn.Module):
                 f"Fusion hidden_dim {config.hidden_dim} must be divisible by "
                 f"num_heads {config.num_heads}."
             )
+        if not 0.0 <= config.modality_dropout < 1.0:
+            raise ValueError("Fusion modality_dropout must be in [0,1).")
         self.config = config
         self.audio_queries_video = nn.MultiheadAttention(
             config.hidden_dim,
@@ -49,7 +51,21 @@ class BidirectionalCrossAttentionFusion(nn.Module):
         self.audio_norm = nn.LayerNorm(config.hidden_dim)
         self.video_norm = nn.LayerNorm(config.hidden_dim)
         self.gate = nn.Linear(config.hidden_dim * 2, config.hidden_dim)
+        nn.init.constant_(self.gate.bias, config.audio_gate_bias)
         self.output_norm = nn.LayerNorm(config.hidden_dim)
+
+    def _apply_modality_dropout(
+        self, audio: Tensor, video: Tensor
+    ) -> tuple[Tensor, Tensor]:
+        probability = self.config.modality_dropout
+        if not self.training or probability == 0.0:
+            return audio, video
+        draw = torch.rand(audio.shape[0], device=audio.device)
+        drop_audio = draw < probability / 2.0
+        drop_video = (draw >= probability / 2.0) & (draw < probability)
+        audio = audio.masked_fill(drop_audio.unsqueeze(-1), 0.0)
+        video = video.masked_fill(drop_video.unsqueeze(-1), 0.0)
+        return audio, video
 
     def forward(
         self,
@@ -98,6 +114,8 @@ class BidirectionalCrossAttentionFusion(nn.Module):
 
         audio_pooled = masked_mean(audio_fused, audio_mask)
         video_pooled = masked_mean(video_fused, video_mask)
+        audio_pooled, video_pooled = self._apply_modality_dropout(
+            audio_pooled, video_pooled
+        )
         gate = torch.sigmoid(self.gate(torch.cat([audio_pooled, video_pooled], dim=-1)))
         return self.output_norm(gate * audio_pooled + (1.0 - gate) * video_pooled)
-

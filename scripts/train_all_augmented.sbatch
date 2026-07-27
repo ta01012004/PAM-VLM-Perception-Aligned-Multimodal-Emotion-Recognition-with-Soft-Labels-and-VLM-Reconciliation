@@ -32,6 +32,7 @@ CONFIGS=(
   "configs/baseline_audio.yaml"
   "configs/baseline_video.yaml"
   "configs/softlabel.yaml"
+  "configs/high_accuracy.yaml"
 )
 for cfg in "${CONFIGS[@]}"; do
   echo "=== TRAIN: ${cfg} ==="

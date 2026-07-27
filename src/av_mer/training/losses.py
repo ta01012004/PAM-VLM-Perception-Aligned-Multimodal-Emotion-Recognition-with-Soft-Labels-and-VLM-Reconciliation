@@ -31,6 +31,7 @@ class LossConfig:
     soft_fusion_weight: float = 0.0
     soft_audio_weight: float = 0.0
     soft_video_weight: float = 0.0
+    label_smoothing: float = 0.0
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "LossConfig":
@@ -47,6 +48,7 @@ class LossConfig:
                 soft_fusion_weight=float(soft.get("fusion", 0.0)),
                 soft_audio_weight=float(soft.get("audio", 0.0)),
                 soft_video_weight=float(soft.get("video", 0.0)),
+                label_smoothing=float(values.get("label_smoothing", 0.0)),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError(f"Invalid loss configuration: {error}.") from error
@@ -70,6 +72,8 @@ class MultiBranchClassificationLoss(nn.Module):
     def __init__(self, config: LossConfig) -> None:
         super().__init__()
         self.config = config
+        if not 0.0 <= config.label_smoothing < 1.0:
+            raise ValueError("label_smoothing must be in [0,1).")
         hard_weights = self._hard_weights()
         if any(weight < 0 for weight in hard_weights.values()):
             raise ValueError(f"Hard-label loss weights must be non-negative: {hard_weights}.")
@@ -143,7 +147,9 @@ class MultiBranchClassificationLoss(nn.Module):
                     raise ValueError(
                         f"Invalid class labels {invalid}; expected IDs in [0,{num_classes - 1}]."
                     )
-                cross_entropy = F.cross_entropy(logits, labels)
+                cross_entropy = F.cross_entropy(
+                    logits, labels, label_smoothing=self.config.label_smoothing
+                )
                 components[f"hard_{branch}_ce"] = cross_entropy
                 weighted_terms.append(cross_entropy * weight)
 
@@ -185,4 +191,3 @@ class MultiBranchClassificationLoss(nn.Module):
             raise FloatingPointError("Non-finite total classification loss detected.")
         components["total"] = total
         return LossResult(total=total, components=components)
-

@@ -1,212 +1,153 @@
-# PAM-VLM: Perception-Aligned Multimodal Emotion Recognition
+# PAM-VLM: Perception-Aligned Audio-Visual Emotion Recognition
 
-> Audio-visual emotion recognition on CREMA-D with per-modality soft labels and an optional VLM reconciler.
+PAM-VLM combines WavLM speech features, EfficientNet facial features,
+bidirectional cross-attention, CREMA-D perceptual label distributions, and a
+Qwen2.5-0.5B reconciler. The repository contains training and evaluation code,
+fixed experiment configurations, lightweight result artifacts, and the IEEE
+report.
 
----
+## Main contributions
 
-## Overview
-
-Most published CREMA-D results (89–95%) are inflated by **random clip splits** that leak actor identity into the test set.
-This project re-benchmarks the problem under a **strict actor-independent split** and introduces three contributions:
-
-| Contribution | What it does |
-|---|---|
-| **Benchmark critique** | Shows that high-accuracy results correlate with random splits; establishes honest range of 70–85% |
-| **Per-modality soft labels** | Exploits CREMA-D's 3 vote conditions (voice-only / face-only / AV) to build label distributions per clip per modality |
-| **VLM reconciler** | Qwen2.5-0.5B + LoRA resolves audio-video conflicts and enables prompt-only zero-shot transfer |
-
----
+- **Clip-level CREMA-D benchmark:** deterministic, emotion-stratified 80/10/10
+  split over all 7,442 clips. Clips are disjoint; actors intentionally overlap.
+- **Perception-aligned supervision:** voice-only, face-only, and audio-visual
+  vote distributions supervise the corresponding model branches.
+- **Selective backbone adaptation:** the final two WavLM layers and final two
+  EfficientNet stages are fine-tuned with a lower learning rate.
+- **Language-model reconciliation:** four learned soft-prefix tokens condition
+  frozen Qwen base weights with rank-16 LoRA adapters. Candidate scoring is
+  constrained to the six emotion labels.
+- **Cross-corpus evaluation:** the CREMA-D-trained model is evaluated zero-shot
+  on all 1,056 prepared RAVDESS clips sharing the six target labels.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        PAM-VLM (3 tiers)                        │
-│                                                                  │
-│  TIER 1 — ENCODERS (frozen)                                     │
-│  ┌──────────────────────┐   ┌──────────────────────────────┐   │
-│  │  WavLM-base-plus     │   │  EfficientNet-B0 (per frame) │   │
-│  │  16kHz wav → 768-dim │   │  + 2-layer Transformer       │   │
-│  │  → Linear proj 256   │   │  → 256-dim video tokens      │   │
-│  └──────────┬───────────┘   └──────────────┬───────────────┘   │
-│             │  audio tokens [B,Ta,256]      │ video tokens [B,F,256]
-│             └──────────────┬───────────────┘                   │
-│                            ▼                                    │
-│  TIER 2 — FUSION (trainable, ~1.1M params)                     │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Bidirectional Cross-Attention                          │   │
-│  │  audio queries video  <->  video queries audio          │   │
-│  │  -> Gated pooling -> fusion embedding [B,256]           │   │
-│  │  -> fusion head  -> logits [B,6]  <- PRIMARY METRIC     │   │
-│  │  -> audio head   -> logits [B,6]  <- supervised voice   │   │
-│  │  -> video head   -> logits [B,6]  <- supervised face    │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  TIER 3 — VLM RECONCILER (optional, disabled at baseline)      │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  KL(p_audio || p_video) > threshold?                    │   │
-│  │    -> Qwen2.5-0.5B-Instruct + LoRA (rank 16, ~3M)       │   │
-│  │    -> "<emotion>angry</emotion> + rationale"             │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+![PAM-VLM architecture](report/pineline.png)
+
+The primary PAM classifier maps audio and visual sequences into a shared
+256-dimensional representation. Bidirectional cross-attention exchanges
+context before gated pooling. Audio, video, and fusion heads predict:
+
+`angry`, `disgust`, `fear`, `happy`, `neutral`, and `sad`.
+
+The reconciler concatenates the fusion embedding, audio probabilities, video
+probabilities, and audio-video disagreement:
+
+```text
+256 fusion + 6 audio + 6 video + 1 disagreement
+  -> projector
+  -> 4 x 896-dimensional prefix tokens
+  -> Qwen2.5-0.5B-Instruct + LoRA
+  -> constrained six-label candidate scoring
 ```
 
-**Training loss (soft-label mode):**
+## Evaluation protocols
 
-```
-L = 0.6 x KL(fusion_logits || soft_av)
-  + 0.2 x KL(audio_logits  || soft_voice)
-  + 0.2 x KL(video_logits  || soft_face)
-```
+### Primary CREMA-D track
 
----
+Protocol ID: `cremad-6class-clip-801010-s42-v2`
 
-## Why soft labels?
+| Split | Clips | Actors present |
+|---|---:|---:|
+| Train | 5,954 | 91 |
+| Validation | 744 | 91 |
+| Test | 744 | 91 |
 
-CREMA-D is unique: each clip was rated by crowd workers under **3 separate conditions** — hearing only the voice, seeing only the face, or seeing+hearing together. Standard approaches collapse all votes into one hard label and throw away the rest.
+This protocol measures clip-level within-corpus recognition. It is **not**
+actor-independent and must not be described as unseen-speaker generalization.
 
-PAM-VLM keeps all three distributions and supervises each encoder branch with its matching condition. This is the key novelty.
+### VLM adaptation and transfer
 
-```
-Clip: actor says "HAPPY" but looks sad
-  voice-only votes:  [happy:0.7, neutral:0.2, sad:0.1]
-  face-only votes:   [sad:0.5, neutral:0.3, happy:0.2]
-  AV votes:          [happy:0.5, sad:0.3, neutral:0.2]
-  hard label (usual): happy (one-hot)  ← discards all disagreement
-  PAM-VLM:           uses all three distributions per branch
-```
+- Mini-CREMA: 780 balanced training clips and 120 validation clips.
+- CREMA-D reconciler test: untouched 744-clip primary test partition.
+- RAVDESS zero-shot: 1,056 clips from 24 actors; no RAVDESS label is used for
+  adaptation, checkpoint selection, routing selection, or prompt tuning.
+- Routing thresholds are selected on Mini-CREMA and frozen before both tests.
 
----
+## Results
 
-## Dataset Split
+### Primary CREMA-D classifier
 
-| Split | Clips | Actors |
-|-------|-------|--------|
-| Train | 5,721 | 70 |
-| Val   | 820   | 10 |
-| Test  | 901   | 11 |
-| **Total** | **7,442** | **91** |
+| Model | Test Macro-F1 | UAR | Accuracy | ECE |
+|---|---:|---:|---:|---:|
+| Audio-only | 0.720 | 0.720 | 0.719 | 0.057 |
+| Video-only | 0.702 | 0.697 | 0.696 | 0.062 |
+| Frozen hard-label fusion | 0.849 | 0.845 | 0.847 | **0.038** |
+| **PAM high-accuracy** | **0.888** | **0.886** | **0.887** | 0.090 |
 
-- 6 emotions: `angry · disgust · fear · happy · neutral · sad`
-- **Actor-independent** (no actor appears in both train and test)
-- Soft labels: 100% coverage, Laplace smoothing α=1
+The selected model reaches 0.906 validation Macro-F1 and 0.888 held-out test
+Macro-F1. These are the primary paper results.
 
----
+### Qwen reconciliation
 
-## Benchmark
+| Evaluation | System | Macro-F1 | UAR | Accuracy |
+|---|---|---:|---:|---:|
+| Mini-CREMA validation (120) | PAM | 0.8750 | 0.8750 | 0.8750 |
+|  | Qwen | 0.8919 | 0.8917 | 0.8917 |
+|  | PAM+VLM routing | **0.8924** | **0.8917** | **0.8917** |
+| CREMA-D test (744) | PAM cache baseline | **0.8870** | **0.8846** | **0.8858** |
+|  | Qwen | 0.8750 | 0.8727 | 0.8737 |
+|  | PAM+VLM routing | 0.8817 | 0.8791 | 0.8804 |
+| RAVDESS zero-shot (1,056) | PAM | **0.5618** | **0.5573** | **0.5634** |
+|  | Qwen | 0.5004 | 0.5226 | 0.5312 |
+|  | PAM+VLM routing | 0.5071 | 0.5278 | 0.5369 |
 
-| Method | Modality | Split | Score |
-|---|---|---|---|
-| Hybrid DL+FE (2025) | Audio | Random† | 95.1% |
-| Transformer-CNN (2025) | Audio | Random†‡ | 90.0% |
-| Spectral+Attn (2025) | Audio | Random† | 89.3% |
-| Human ceiling (2014) | A+V | Human | ~63% |
-| Raw waveform CNN (2023) | Audio | Indep.★ | 69.7% |
-| DistilHuBERT (2025) | Audio | Indep.★ | 70.6% |
-| Transfer+Emb. (2024) | Audio | Indep.★ | UAR 80.3% |
-| Nature hybrid fusion (2026) | A+V | Indep.★ | ~80%+ |
-| **PAM-VLM audio-only (ours)** | **Audio** | **Indep.★** | **test Macro-F1 0.684** |
-| **PAM-VLM fusion soft-label (ours)** | **A+V** | **Indep.★** | **test Macro-F1 0.700, ECE 0.053** |
+The reconciler improves Mini-CREMA validation but degrades both held-out
+CREMA-D and cross-corpus RAVDESS results. This is a negative but important
+finding: validation-selected confidence/disagreement routing does not
+generalize reliably. The primary PAM classifier remains the strongest tested
+decision system.
 
-† random/augment-before-split suspected · ‡ <6 emotion classes · ★ actor/speaker-independent confirmed
+Raw metrics and per-clip predictions are in [`results/`](results/README.md).
+The compiled paper is [`report/main.pdf`](report/main.pdf).
 
-Full validation + test tables, per-class metrics, confusion matrices, and
-training curves are in [`results/`](results/README.md). Soft-label (step-05)
-results pending.
+## Reproduce
 
-Methods marked † exceed human agreement ceiling (~63% for AV condition) — physically impossible without data leakage.
-
----
-
-## Quickstart
-
-### 1. Install
 ```bash
 pip install -r requirements.txt
-```
 
-### 2. Prepare CREMA-D
-```
-data/raw/crema_d/
-├── AudioWAV/            # 7442 .wav files
-├── VideoFlash/          # 7442 .flv files
-└── finishedResponses.csv
-```
-
-### 3. Build splits + soft labels
-```bash
+# Build the fixed CREMA-D clip-level manifests and soft labels.
 python scripts/build_manifest.py
 python scripts/build_soft_labels.py
+
+# Train and evaluate PAM on SLURM.
+sbatch scripts/train_all_augmented.sbatch
+sbatch scripts/eval_test.sbatch
+
+# Build cached Mini-CREMA features, train the reconciler, and evaluate.
+sbatch scripts/train_vlm_mini_cached.sbatch
+sbatch scripts/eval_vlm_cremad_test.sbatch
+
+# Build the RAVDESS manifest and run frozen zero-shot evaluation.
+python scripts/build_zeroshot_ravdess_manifest.py
+sbatch scripts/zeroshot.sbatch
 ```
 
-### 4. Train on SLURM cluster
-```bash
-sbatch scripts/train_fusion_gpu.sbatch
+Set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` when using the local
+pretrained cache. Checkpoints, pretrained model weights, raw media, and feature
+caches are intentionally excluded from Git.
+
+## Repository layout
+
+```text
+configs/                 fixed data, model, prompt, and training configurations
+scripts/                 manifest, training, evaluation, and SLURM entry points
+src/av_mer/data/         splits, disagreement, datasets, and cached VLM features
+src/av_mer/models/       encoders, fusion, projector, and Qwen adapter
+src/av_mer/evaluation/   metrics, reports, candidate scoring, and routing
+src/av_mer/inference/    single-video predictor
+tests/                   data, model, evaluation, training, and inference tests
+results/                 lightweight metrics, predictions, and figures
+report/                  IEEE LaTeX source, references, figures, and final PDF
 ```
 
-### 5. Train on Kaggle (audio-only)
-Use `kaggle_train.py` with dataset `ejlok1/cremad` — no upload needed.
+## Evidence boundaries
 
----
-
-## Project Structure
-
-```
-.
-├── src/av_mer/
-│   ├── data/           # Dataset, splits, audio/video I/O, soft labels
-│   ├── models/         # AudioEncoder, VideoEncoder, BidirectionalCrossAttn, PAMFusion
-│   ├── training/       # Train loop, losses (CE + KL), checkpointing
-│   └── evaluation/     # Macro-F1, UAR, ECE, confusion matrix
-├── configs/
-│   ├── baseline_audio.yaml
-│   ├── baseline_video.yaml
-│   └── baseline_fusion.yaml
-├── scripts/
-│   ├── train.py
-│   └── train_fusion_gpu.sbatch
-├── report/             # LaTeX report (IEEEtran 2-column)
-├── plan/               # Step-by-step implementation plan
-├── kaggle_train.py     # Self-contained Kaggle notebook (audio-only baseline)
-└── requirements.txt
-```
-
----
-
-## Model Parameters
-
-| Component | Params | Trainable |
-|---|---|---|
-| WavLM-base-plus | ~94M | Frozen |
-| EfficientNet-B0 | ~5.3M | Frozen |
-| Fusion + heads | ~1.1M | Yes |
-| Qwen2.5-0.5B + LoRA (optional) | ~500M + ~3M | LoRA only |
-
----
-
-## Expected Results
-
-| Run | Macro-F1 target |
-|---|---|
-| Audio-only | 65–72% |
-| Video-only | 55–65% |
-| Fusion (hard label) | 75–82% |
-| Fusion (soft label) | 77–84% |
-| + VLM reconciler | ± on conflict cases |
-
----
-
-## Training Config
-
-```yaml
-epochs: 30
-batch_size: 8              # effective 32 (grad_accum=4)
-optimizer: AdamW lr=3e-4
-scheduler: CosineAnnealingLR
-amp: true
-early_stopping_patience: 6
-primary_metric: macro_f1
-audio_encoder: microsoft/wavlm-base-plus  (FROZEN)
-video_encoder: efficientnet_b0            (FROZEN)
-hardware: NVIDIA A100 (SLURM, partition=gpu)
-```
+- The clip-level CREMA-D score benefits from actor overlap and is not an
+  actor-independent claim.
+- Mini-CREMA is used for reconciler and routing selection; it is validation
+  evidence, not a held-out test.
+- Published RAVDESS studies use different labels, partitions, and training
+  protocols. The zero-shot result is contextual rather than a direct
+  leaderboard comparison.
+- Multi-seed confirmation and component-wise ablations remain future work.
