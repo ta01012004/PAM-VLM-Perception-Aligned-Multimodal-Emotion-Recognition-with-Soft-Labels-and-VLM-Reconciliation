@@ -46,3 +46,40 @@ env/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+# Private local access settings and credentials
+.env.*
+!.env.example
+*.dpapi
+*.pem
+*.key
+HPC_CONNECTION_CONTEXT.json
+HUONG_DAN_KET_NOI_HPC.md
+**/hpc_credentials.py
+**/deploy_pam_hpc.ps1
+**/read_pam_v2_hpc.py
+
+# Current journal submission and local staging are not public source artifacts
+/Submission_IEEE_LATAMT/
+/PAM_IEEE_Latin_America_Transactions/
+/temp/
+*.pt
+*.pth
+*.safetensors
+
+# Allow only the curated public evidence under otherwise ignored run folders.
+!experiments/actor_disjoint_2026/evidence/primary/runs/
+experiments/actor_disjoint_2026/evidence/primary/runs/**
+!experiments/actor_disjoint_2026/evidence/primary/runs/*/
+!experiments/actor_disjoint_2026/evidence/primary/runs/*/*.json
+!experiments/actor_disjoint_2026/evidence/primary/runs/*/test_predictions.csv
+!experiments/actor_disjoint_2026/evidence/ce_only/runs/
+experiments/actor_disjoint_2026/evidence/ce_only/runs/**
+!experiments/actor_disjoint_2026/evidence/ce_only/runs/*/
+!experiments/actor_disjoint_2026/evidence/ce_only/runs/*/*.json
+!experiments/actor_disjoint_2026/evidence/ce_only/runs/*/test_predictions.csv
+!experiments/actor_disjoint_2026/evidence/reviewer/runs/
+experiments/actor_disjoint_2026/evidence/reviewer/runs/**
+!experiments/actor_disjoint_2026/evidence/reviewer/runs/*/
+!experiments/actor_disjoint_2026/evidence/reviewer/runs/*/*.json
+!experiments/actor_disjoint_2026/evidence/reviewer/runs/*/test_predictions.csv

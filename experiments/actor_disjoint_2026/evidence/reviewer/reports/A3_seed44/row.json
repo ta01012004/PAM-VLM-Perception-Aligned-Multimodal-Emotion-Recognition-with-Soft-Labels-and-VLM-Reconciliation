@@ -1,0 +1,15 @@
+{
+  "run": "A3_seed44",
+  "protocol": "T602020",
+  "fold": 1,
+  "directory": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/runs/A3_seed44/20261007-081848_reviewer_A3_seed44",
+  "epochs": 21,
+  "comparability": "fresh_paired_holdout_not_published_leaderboard",
+  "num_samples": 1476,
+  "accuracy": 0.7405149051490515,
+  "macro_f1": 0.7460590450486752,
+  "uar": 0.7431657848324514,
+  "ece": 0.05882361303096221,
+  "nll": 0.7101607848121018,
+  "brier": 0.3572420945242412
+}

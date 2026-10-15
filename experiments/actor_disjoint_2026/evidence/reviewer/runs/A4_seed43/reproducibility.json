@@ -1,0 +1,243 @@
+{
+  "best_checkpoint_path": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/runs/A4_seed43/20261006-063751_reviewer_A4_seed43/checkpoints/best.pt",
+  "best_validation_metric": 0.7561077147083233,
+  "cuda_version": "12.1",
+  "dirty_worktree": true,
+  "git_commit": "68ee8554ead8e1830075bc08d85147f59b636e55",
+  "gpu_names": [
+    "NVIDIA RTX A5000"
+  ],
+  "label_mapping": {
+    "angry": 0,
+    "disgust": 1,
+    "fear": 2,
+    "happy": 3,
+    "neutral": 4,
+    "sad": 5
+  },
+  "package_versions": {
+    "numpy": "1.26.4",
+    "pandas": "2.1.4",
+    "pyarrow": "23.0.1",
+    "scikit-learn": "1.7.1",
+    "torch": "2.5.0+cu121",
+    "torchvision": "0.20.0+cu121",
+    "transformers": "4.57.6"
+  },
+  "parameter_count": 101160190,
+  "resolved_config": {
+    "baseline": "fusion",
+    "canonical_model_config": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/models/canonical_A0.json",
+    "data": {
+      "decode_error_report": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/logs/A4_seed43_decode.csv",
+      "label_mapping": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/label_mapping.json",
+      "loader_config": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/loader.json",
+      "protocol_id": "t602020_seed0",
+      "raw_root": "CREMAD_ROOT",
+      "soft_labels": {
+        "av": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_av.parquet",
+        "face": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_face.parquet",
+        "voice": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_voice.parquet"
+      },
+      "split_checksum": "ARTIFACTS_ROOT/published16_20260924_v1/splits/t602020_seed0/manifest_checksum.txt",
+      "test_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/t602020_seed0/manifest_test.csv",
+      "train_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/t602020_seed0/manifest_train.csv",
+      "val_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/t602020_seed0/manifest_val.csv"
+    },
+    "loss": {
+      "hard_weights": {
+        "audio": 0.2,
+        "fusion": 0.75,
+        "video": 0.05
+      },
+      "label_smoothing": 0.05,
+      "soft_labels_enabled": true,
+      "soft_weights": {
+        "audio": 0.05,
+        "fusion": 0.15,
+        "video": 0.02
+      }
+    },
+    "model_config": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/models/A4_seed43.json",
+    "optimizer": {
+      "backbone_learning_rate": 1e-05,
+      "learning_rate": 0.0002,
+      "minimum_learning_rate": 1e-06,
+      "weight_decay": 0.01
+    },
+    "output_root": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/runs/A4_seed43",
+    "published_protocol": {
+      "actors": {
+        "test": [
+          1006,
+          1013,
+          1018,
+          1028,
+          1033,
+          1034,
+          1037,
+          1039,
+          1046,
+          1050,
+          1052,
+          1054,
+          1062,
+          1063,
+          1065,
+          1066,
+          1075,
+          1078
+        ],
+        "train": [
+          1001,
+          1002,
+          1003,
+          1004,
+          1005,
+          1007,
+          1008,
+          1009,
+          1011,
+          1012,
+          1015,
+          1016,
+          1017,
+          1020,
+          1022,
+          1023,
+          1024,
+          1025,
+          1026,
+          1027,
+          1030,
+          1032,
+          1035,
+          1038,
+          1042,
+          1044,
+          1045,
+          1047,
+          1048,
+          1049,
+          1051,
+          1053,
+          1055,
+          1057,
+          1058,
+          1060,
+          1064,
+          1067,
+          1068,
+          1072,
+          1073,
+          1074,
+          1076,
+          1077,
+          1079,
+          1080,
+          1083,
+          1084,
+          1085,
+          1086,
+          1087,
+          1088,
+          1089,
+          1090,
+          1091
+        ],
+        "val": [
+          1010,
+          1014,
+          1019,
+          1021,
+          1029,
+          1031,
+          1036,
+          1040,
+          1041,
+          1043,
+          1056,
+          1059,
+          1061,
+          1069,
+          1070,
+          1071,
+          1081,
+          1082
+        ]
+      },
+      "comparability": "protocol_family_new_actor_assignment_single_trial",
+      "counts": {
+        "test": {
+          "actors": 18,
+          "classes": {
+            "angry": 252,
+            "disgust": 252,
+            "fear": 252,
+            "happy": 252,
+            "neutral": 216,
+            "sad": 252
+          },
+          "clips": 1476
+        },
+        "train": {
+          "actors": 55,
+          "classes": {
+            "angry": 768,
+            "disgust": 768,
+            "fear": 768,
+            "happy": 768,
+            "neutral": 656,
+            "sad": 768
+          },
+          "clips": 4496
+        },
+        "val": {
+          "actors": 18,
+          "classes": {
+            "angry": 251,
+            "disgust": 251,
+            "fear": 251,
+            "happy": 251,
+            "neutral": 215,
+            "sad": 251
+          },
+          "clips": 1470
+        }
+      },
+      "excluded_clips": [],
+      "fold": 1,
+      "id": "t602020_seed0",
+      "protocol": "T602020",
+      "split_seed": 0,
+      "training_seed": 43,
+      "validation_seed": null
+    },
+    "reviewer_variant": {
+      "arm": "A4",
+      "original_assignment": "t602020_seed0",
+      "seed": 43
+    },
+    "run_id": "20261006-063751_reviewer_A4_seed43",
+    "run_name": "reviewer_A4_seed43",
+    "seed": 43,
+    "slurm_job_id": "83889",
+    "target_routing": "matched",
+    "training": {
+      "amp": true,
+      "batch_size": 4,
+      "early_stopping_patience": 8,
+      "epochs": 40,
+      "gradient_accumulation_steps": 8,
+      "max_grad_norm": 1.0,
+      "num_workers": 12,
+      "primary_metric": "macro_f1"
+    }
+  },
+  "run_id": "20261006-063751_reviewer_A4_seed43",
+  "seed": 43,
+  "split_manifest_checksum": "8456b067fafe27d9035436808fd7513e71a81cf227ba9d4c8de35e1ef3f72820",
+  "test_metrics": null,
+  "trainable_parameter_count": 17550570,
+  "utc_timestamp": "2026-10-06T09:11:05.877042+00:00"
+}

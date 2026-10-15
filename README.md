@@ -1,153 +1,76 @@
-# PAM-VLM: Perception-Aligned Audio-Visual Emotion Recognition
+# PAM: Perception-Aligned Audio–Visual Emotion Recognition
 
-PAM-VLM combines WavLM speech features, EfficientNet facial features,
-bidirectional cross-attention, CREMA-D perceptual label distributions, and a
-Qwen2.5-0.5B reconciler. The repository contains training and evaluation code,
-fixed experiment configurations, lightweight result artifacts, and the IEEE
-report.
+PAM combines WavLM speech features, EfficientNet-B0 facial features,
+bidirectional cross-attention, learned gated fusion, and modality-matched
+human emotion-rating distributions from CREMA-D. Cross-entropy supervises
+intended labels; perceptual KL supervises corresponding audio, video, and
+fused branches during training. Inference uses the fused six-class argmax.
+**The current actor-disjoint study does not use the language-model reconciler.**
 
-## Main contributions
+## Current evidence: unseen actors
 
-- **Clip-level CREMA-D benchmark:** deterministic, emotion-stratified 80/10/10
-  split over all 7,442 clips. Clips are disjoint; actors intentionally overlap.
-- **Perception-aligned supervision:** voice-only, face-only, and audio-visual
-  vote distributions supervise the corresponding model branches.
-- **Selective backbone adaptation:** the final two WavLM layers and final two
-  EfficientNet stages are fine-tuned with a lower learning rate.
-- **Language-model reconciliation:** four learned soft-prefix tokens condition
-  frozen Qwen base weights with rank-16 LoRA adapters. Candidate scoring is
-  constrained to the six emotion labels.
-- **Cross-corpus evaluation:** the CREMA-D-trained model is evaluated zero-shot
-  on all 1,056 prepared RAVDESS clips sharing the six target labels.
+The [2026 actor-disjoint package](experiments/actor_disjoint_2026/README.md)
+contains predictions, recorded configurations, exact actor assignments,
+lightweight training histories, code snapshots, and CPU validation for
+**59 training runs**:
 
-## Architecture
+| Block | Runs | What varies |
+|---|---:|---|
+| Primary PAM | 16 | Five outer test folds, ten actor-disjoint folds, one fixed actor holdout |
+| Ten-fold CE-only control | 10 | KL removed; label smoothing remains 0.05 |
+| Fresh component/target controls | 33 | Eleven variants × training seeds 42, 43, 44 on one fixed actor assignment |
 
-![PAM-VLM architecture](report/pineline.png)
+The ten primary CE+KL folds are reused as the comparison arm of the ten-fold
+control; they are **not ten additional training runs**. Fold SD and seed SD
+are different summaries. The three primary split settings are not a single
+leaderboard, and the three-seed holdout does not replace cross-validation.
 
-The primary PAM classifier maps audio and visual sequences into a shared
-256-dimensional representation. Bidirectional cross-attention exchanges
-context before gated pooling. Audio, video, and fusion heads predict:
+### Recognition and probability scores
 
-`angry`, `disgust`, `fear`, `happy`, `neutral`, and `sad`.
-
-The reconciler concatenates the fusion embedding, audio probabilities, video
-probabilities, and audio-video disagreement:
-
-```text
-256 fusion + 6 audio + 6 video + 1 disagreement
-  -> projector
-  -> 4 x 896-dimensional prefix tokens
-  -> Qwen2.5-0.5B-Instruct + LoRA
-  -> constrained six-label candidate scoring
-```
-
-## Evaluation protocols
-
-### Primary CREMA-D track
-
-Protocol ID: `cremad-6class-clip-801010-s42-v2`
-
-| Split | Clips | Actors present |
+| Ten-fold setting | Macro-F1, mean ± fold SD | ECE15, mean ± fold SD |
 |---|---:|---:|
-| Train | 5,954 | 91 |
-| Validation | 744 | 91 |
-| Test | 744 | 91 |
+| CE-only, smoothing 0.05 | **0.7569 ± 0.0426** | 0.0965 ± 0.0408 |
+| PAM CE+KL | 0.7549 ± 0.0428 | **0.0576 ± 0.0126** |
 
-This protocol measures clip-level within-corpus recognition. It is **not**
-actor-independent and must not be described as unseen-speaker generalization.
+KL lowers mean ECE by 40.3% relative in this setting, while mean Macro-F1 is
+slightly lower. Mean NLL and Brier are also lower. This is a descriptive
+recognition–calibration tradeoff, **not a recognition gain or a significance claim**.
 
-### VLM adaptation and transfer
+All eleven fresh variants, including literal one-hot CE, are included.
+One-hot CE has the highest mean recognition on the fixed holdout but worse
+probability scores. Routing effects are small/mixed; encoder substitutions
+test operational portability, not a controlled ranking of backbones.
+See the [complete results and limitations](experiments/actor_disjoint_2026/RESULTS.md).
 
-- Mini-CREMA: 780 balanced training clips and 120 validation clips.
-- CREMA-D reconciler test: untouched 744-clip primary test partition.
-- RAVDESS zero-shot: 1,056 clips from 24 actors; no RAVDESS label is used for
-  adaptation, checkpoint selection, routing selection, or prompt tuning.
-- Routing thresholds are selected on Mini-CREMA and frozen before both tests.
-
-## Results
-
-### Primary CREMA-D classifier
-
-| Model | Test Macro-F1 | UAR | Accuracy | ECE |
-|---|---:|---:|---:|---:|
-| Audio-only | 0.720 | 0.720 | 0.719 | 0.057 |
-| Video-only | 0.702 | 0.697 | 0.696 | 0.062 |
-| Frozen hard-label fusion | 0.849 | 0.845 | 0.847 | **0.038** |
-| **PAM high-accuracy** | **0.888** | **0.886** | **0.887** | 0.090 |
-
-The selected model reaches 0.906 validation Macro-F1 and 0.888 held-out test
-Macro-F1. These are the primary paper results.
-
-### Qwen reconciliation
-
-| Evaluation | System | Macro-F1 | UAR | Accuracy |
-|---|---|---:|---:|---:|
-| Mini-CREMA validation (120) | PAM | 0.8750 | 0.8750 | 0.8750 |
-|  | Qwen | 0.8919 | 0.8917 | 0.8917 |
-|  | PAM+VLM routing | **0.8924** | **0.8917** | **0.8917** |
-| CREMA-D test (744) | PAM cache baseline | **0.8870** | **0.8846** | **0.8858** |
-|  | Qwen | 0.8750 | 0.8727 | 0.8737 |
-|  | PAM+VLM routing | 0.8817 | 0.8791 | 0.8804 |
-| RAVDESS zero-shot (1,056) | PAM | **0.5618** | **0.5573** | **0.5634** |
-|  | Qwen | 0.5004 | 0.5226 | 0.5312 |
-|  | PAM+VLM routing | 0.5071 | 0.5278 | 0.5369 |
-
-The reconciler improves Mini-CREMA validation but degrades both held-out
-CREMA-D and cross-corpus RAVDESS results. This is a negative but important
-finding: validation-selected confidence/disagreement routing does not
-generalize reliably. The primary PAM classifier remains the strongest tested
-decision system.
-
-Raw metrics and per-clip predictions are in [`results/`](results/README.md).
-The compiled paper is [`report/main.pdf`](report/main.pdf).
-
-## Reproduce
+## Verify the exported results on CPU
 
 ```bash
-pip install -r requirements.txt
-
-# Build the fixed CREMA-D clip-level manifests and soft labels.
-python scripts/build_manifest.py
-python scripts/build_soft_labels.py
-
-# Train and evaluate PAM on SLURM.
-sbatch scripts/train_all_augmented.sbatch
-sbatch scripts/eval_test.sbatch
-
-# Build cached Mini-CREMA features, train the reconciler, and evaluate.
-sbatch scripts/train_vlm_mini_cached.sbatch
-sbatch scripts/eval_vlm_cremad_test.sbatch
-
-# Build the RAVDESS manifest and run frozen zero-shot evaluation.
-python scripts/build_zeroshot_ravdess_manifest.py
-sbatch scripts/zeroshot.sbatch
+pip install -r experiments/actor_disjoint_2026/requirements-analysis.txt
+python experiments/actor_disjoint_2026/analysis/validate_release.py
+python -m pytest experiments/actor_disjoint_2026/analysis -q
 ```
 
-Set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` when using the local
-pretrained cache. Checkpoints, pretrained model weights, raw media, and feature
-caches are intentionally excluded from Git.
+The validator recomputes Macro-F1, UAR, accuracy, ECE15, NLL and Brier from all
+59 test prediction files, checks actor partitions and paired clip identities,
+and checks primary fold/OOF and ten-fold control summaries. No GPU, raw media,
+trained checkpoint, or HPC account is needed for this exported-results audit.
 
-## Repository layout
+Training material and its prerequisites are documented in
+[REPRODUCE.md](experiments/actor_disjoint_2026/REPRODUCE.md).
+The source snapshots are isolated so current evidence does not silently use
+legacy code. Weights and raw CREMA-D data must be obtained separately.
 
-```text
-configs/                 fixed data, model, prompt, and training configurations
-scripts/                 manifest, training, evaluation, and SLURM entry points
-src/av_mer/data/         splits, disagreement, datasets, and cached VLM features
-src/av_mer/models/       encoders, fusion, projector, and Qwen adapter
-src/av_mer/evaluation/   metrics, reports, candidate scoring, and routing
-src/av_mer/inference/    single-video predictor
-tests/                   data, model, evaluation, training, and inference tests
-results/                 lightweight metrics, predictions, and figures
-report/                  IEEE LaTeX source, references, figures, and final PDF
-```
+## Historical PAM-VLM work
 
-## Evidence boundaries
+The repository name and root `src/`, `configs/`, `scripts/`, `tests/`,
+`results/` (outside the package above), and `report/` predate this update.
+They contain the **actor-overlapping clip-split PAM-VLM / Qwen experiments**,
+including their negative held-out reconciliation results. They are retained
+for traceability, not presented as current unseen-actor results.
+The [archived README](docs/legacy_pam_vlm_README.md) records that older study;
+its references to “primary paper results” apply only to that historical version.
 
-- The clip-level CREMA-D score benefits from actor overlap and is not an
-  actor-independent claim.
-- Mini-CREMA is used for reconciler and routing selection; it is validation
-  evidence, not a held-out test.
-- Published RAVDESS studies use different labels, partitions, and training
-  protocols. The zero-shot result is contextual rather than a direct
-  leaderboard comparison.
-- Multi-seed confirmation and component-wise ablations remain future work.
+The current journal manuscript, submission letters, author portraits, raw
+media/human-rating dumps, credentials, checkpoints, and private HPC access
+configuration are not part of this release. The historical `report/` is not
+the current submission. The GitHub repository was not renamed.

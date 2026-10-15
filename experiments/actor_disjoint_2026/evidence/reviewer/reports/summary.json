@@ -1,0 +1,22 @@
+{
+  "complete": true,
+  "completed": 33,
+  "expected": 33,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "limitations": [
+    "one retrospective actor assignment",
+    "fold SD is not seed SD",
+    "H0 vs A0 changes KL and smoothing; H0 vs A1 isolates smoothing",
+    "A6 changes objective scale",
+    "backbone pretraining/capacity differ",
+    "Replacement encoders include checkpoint-required waveform/frame normalization",
+    "Original A0 video preprocessing retained; ResNet uses ImageNet channel normalization",
+    "unused fusion modules allocated but frozen; not a smaller allocated model"
+  ],
+  "shared_initialization_verified": true,
+  "historical_results_reused": false
+}

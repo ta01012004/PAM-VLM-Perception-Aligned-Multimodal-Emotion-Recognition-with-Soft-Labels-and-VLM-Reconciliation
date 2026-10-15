@@ -1,0 +1,15 @@
+{
+  "run": "h5_fold04",
+  "protocol": "H5",
+  "fold": 4,
+  "directory": "ARTIFACTS_ROOT/published16_20260924_v1/runs/h5_fold04/20260926-110509_published16_soft_ft2_h5_fold04",
+  "epochs": 17,
+  "comparability": "exact_public_outer_test_only_reduced_train",
+  "num_samples": 1474,
+  "accuracy": 0.7469470827679783,
+  "macro_f1": 0.7516336308904474,
+  "uar": 0.746820039067715,
+  "ece": 0.04026200564696959,
+  "nll": 0.7351834462804114,
+  "brier": 0.3602031596095207
+}
