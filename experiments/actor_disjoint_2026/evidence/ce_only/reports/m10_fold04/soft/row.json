@@ -1,0 +1,15 @@
+{
+  "run": "m10_fold04",
+  "protocol": "M10",
+  "fold": 4,
+  "directory": "ARTIFACTS_ROOT/published16_20260924_v1/runs/m10_fold04/20260926-235242_published16_soft_ft2_m10_fold04",
+  "epochs": 21,
+  "comparability": "protocol_family_new_actor_assignment",
+  "num_samples": 738,
+  "accuracy": 0.7642276422764228,
+  "macro_f1": 0.766719570843212,
+  "uar": 0.767636684303351,
+  "ece": 0.04245887959229589,
+  "nll": 0.7220645113366109,
+  "brier": 0.34877877110324
+}

@@ -1,0 +1,9 @@
+{
+  "inactive_modules_retained_for_initialization": true,
+  "parameter_counts": {
+    "total": 101160190,
+    "trainable": 18076906
+  },
+  "peak_cuda_bytes": 1206114816,
+  "training_seconds": 13263.381147983484
+}

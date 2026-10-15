@@ -1,0 +1,38 @@
+{
+  "num_classes": 6,
+  "head_dropout": 0.25,
+  "audio": {
+    "encoder_id": "WEIGHTS_ROOT/verified-hf/hub/models--facebook--wav2vec2-base/snapshots/0b5b8e868dd84f03fd87d01f9c4ff0f080fecfe8",
+    "backend": "transformers",
+    "backbone_dim": 768,
+    "hidden_dim": 256,
+    "freeze_backbone": false,
+    "unfreeze_last_n_layers": 2,
+    "dropout": 0.1,
+    "tiny_stride": 4,
+    "normalize_waveform": true,
+    "pass_attention_mask": false
+  },
+  "video": {
+    "backbone_id": "efficientnet_b0",
+    "backend": "torchvision",
+    "backbone_dim": 1280,
+    "hidden_dim": 256,
+    "temporal_layers": 2,
+    "num_heads": 4,
+    "dropout": 0.15,
+    "freeze_backbone": false,
+    "unfreeze_last_n_stages": 2,
+    "pretrained": true,
+    "weights_path": "ARTIFACTS_ROOT/pretrained/torch/hub/checkpoints/efficientnet_b0_rwightman-7f5810bc.pth"
+  },
+  "fusion": {
+    "hidden_dim": 256,
+    "num_heads": 4,
+    "dropout": 0.15,
+    "audio_gate_bias": 1.5,
+    "modality_dropout": 0.2,
+    "cross_attention_enabled": true,
+    "gate_mode": "learned"
+  }
+}

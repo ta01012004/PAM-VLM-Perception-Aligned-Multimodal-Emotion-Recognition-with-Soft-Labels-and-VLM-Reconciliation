@@ -1,3 +1,7 @@
+> **Historical PAM-VLM material.** For the current actor-disjoint PAM study, see
+> [the 2026 evidence package](experiments/actor_disjoint_2026/README.md).
+> Actor-overlapping scores below are not current unseen-actor results.
+
 # PAM-VLM high-accuracy experiment protocol
 
 ## Primary score-optimization track

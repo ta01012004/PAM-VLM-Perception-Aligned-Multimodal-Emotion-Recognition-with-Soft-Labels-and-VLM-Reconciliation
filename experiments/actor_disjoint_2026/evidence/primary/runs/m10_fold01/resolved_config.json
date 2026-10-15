@@ -1,0 +1,202 @@
+{
+  "baseline": "fusion",
+  "data": {
+    "decode_error_report": "ARTIFACTS_ROOT/published16_20260924_v1/logs/m10_fold01_decode_errors.csv",
+    "label_mapping": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/label_mapping.json",
+    "loader_config": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/loader.json",
+    "protocol_id": "m10_fold01",
+    "raw_root": "CREMAD_ROOT",
+    "soft_labels": {
+      "av": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_av.parquet",
+      "face": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_face.parquet",
+      "voice": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_voice.parquet"
+    },
+    "split_checksum": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold01/manifest_checksum.txt",
+    "test_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold01/manifest_test.csv",
+    "train_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold01/manifest_train.csv",
+    "val_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold01/manifest_val.csv"
+  },
+  "loss": {
+    "hard_weights": {
+      "audio": 0.2,
+      "fusion": 0.75,
+      "video": 0.05
+    },
+    "label_smoothing": 0.05,
+    "soft_labels_enabled": true,
+    "soft_weights": {
+      "audio": 0.05,
+      "fusion": 0.15,
+      "video": 0.02
+    }
+  },
+  "model_config": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/model.json",
+  "optimizer": {
+    "backbone_learning_rate": 1e-05,
+    "learning_rate": 0.0002,
+    "minimum_learning_rate": 1e-06,
+    "weight_decay": 0.01
+  },
+  "output_root": "ARTIFACTS_ROOT/published16_20260924_v1/runs/m10_fold01",
+  "published_protocol": {
+    "actors": {
+      "test": [
+        1002,
+        1011,
+        1016,
+        1027,
+        1033,
+        1041,
+        1043,
+        1059,
+        1067,
+        1074
+      ],
+      "train": [
+        1001,
+        1003,
+        1004,
+        1005,
+        1006,
+        1007,
+        1008,
+        1009,
+        1010,
+        1013,
+        1014,
+        1017,
+        1019,
+        1020,
+        1021,
+        1023,
+        1024,
+        1025,
+        1026,
+        1028,
+        1029,
+        1030,
+        1031,
+        1032,
+        1034,
+        1035,
+        1036,
+        1037,
+        1038,
+        1039,
+        1042,
+        1045,
+        1047,
+        1048,
+        1049,
+        1050,
+        1051,
+        1052,
+        1053,
+        1054,
+        1055,
+        1056,
+        1057,
+        1058,
+        1060,
+        1061,
+        1062,
+        1063,
+        1064,
+        1065,
+        1066,
+        1068,
+        1069,
+        1070,
+        1071,
+        1072,
+        1073,
+        1075,
+        1076,
+        1077,
+        1078,
+        1079,
+        1080,
+        1081,
+        1082,
+        1083,
+        1084,
+        1085,
+        1086,
+        1087,
+        1089,
+        1090
+      ],
+      "val": [
+        1012,
+        1015,
+        1018,
+        1022,
+        1040,
+        1044,
+        1046,
+        1088,
+        1091
+      ]
+    },
+    "comparability": "protocol_family_new_actor_assignment",
+    "counts": {
+      "test": {
+        "actors": 10,
+        "classes": {
+          "angry": 140,
+          "disgust": 140,
+          "fear": 140,
+          "happy": 140,
+          "neutral": 119,
+          "sad": 140
+        },
+        "clips": 819
+      },
+      "train": {
+        "actors": 72,
+        "classes": {
+          "angry": 1005,
+          "disgust": 1005,
+          "fear": 1005,
+          "happy": 1005,
+          "neutral": 860,
+          "sad": 1005
+        },
+        "clips": 5885
+      },
+      "val": {
+        "actors": 9,
+        "classes": {
+          "angry": 126,
+          "disgust": 126,
+          "fear": 126,
+          "happy": 126,
+          "neutral": 108,
+          "sad": 126
+        },
+        "clips": 738
+      }
+    },
+    "excluded_clips": [],
+    "fold": 1,
+    "id": "m10_fold01",
+    "protocol": "M10",
+    "split_seed": 42,
+    "training_seed": 42,
+    "validation_seed": 4201
+  },
+  "run_id": "20260926-161857_published16_soft_ft2_m10_fold01",
+  "run_name": "published16_soft_ft2_m10_fold01",
+  "seed": 42,
+  "slurm_job_id": "82891",
+  "training": {
+    "amp": true,
+    "batch_size": 4,
+    "early_stopping_patience": 8,
+    "epochs": 40,
+    "gradient_accumulation_steps": 8,
+    "max_grad_norm": 1.0,
+    "num_workers": 12,
+    "primary_metric": "macro_f1"
+  }
+}

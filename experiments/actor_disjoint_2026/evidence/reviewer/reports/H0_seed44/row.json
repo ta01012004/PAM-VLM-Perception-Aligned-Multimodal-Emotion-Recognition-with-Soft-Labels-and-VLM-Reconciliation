@@ -1,0 +1,15 @@
+{
+  "run": "H0_seed44",
+  "protocol": "T602020",
+  "fold": 1,
+  "directory": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/runs/H0_seed44/20261008-031450_reviewer_H0_seed44",
+  "epochs": 40,
+  "comparability": "fresh_paired_holdout_not_published_leaderboard",
+  "num_samples": 1476,
+  "accuracy": 0.7669376693766937,
+  "macro_f1": 0.7725609808943759,
+  "uar": 0.7687389770723104,
+  "ece": 0.17996686141746154,
+  "nll": 1.1205115842658016,
+  "brier": 0.3955474617617518
+}

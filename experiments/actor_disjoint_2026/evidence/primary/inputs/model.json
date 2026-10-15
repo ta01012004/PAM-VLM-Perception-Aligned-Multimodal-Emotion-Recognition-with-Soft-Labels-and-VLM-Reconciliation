@@ -1,0 +1,33 @@
+{
+  "num_classes": 6,
+  "head_dropout": 0.25,
+  "audio": {
+    "encoder_id": "microsoft/wavlm-base-plus",
+    "backend": "transformers",
+    "backbone_dim": 768,
+    "hidden_dim": 256,
+    "freeze_backbone": false,
+    "unfreeze_last_n_layers": 2,
+    "dropout": 0.1,
+    "tiny_stride": 4
+  },
+  "video": {
+    "backbone_id": "efficientnet_b0",
+    "backend": "torchvision",
+    "backbone_dim": 1280,
+    "hidden_dim": 256,
+    "temporal_layers": 2,
+    "num_heads": 4,
+    "dropout": 0.15,
+    "freeze_backbone": false,
+    "unfreeze_last_n_stages": 2,
+    "pretrained": true
+  },
+  "fusion": {
+    "hidden_dim": 256,
+    "num_heads": 4,
+    "dropout": 0.15,
+    "audio_gate_bias": 1.5,
+    "modality_dropout": 0.2
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "best_checkpoint_path": "ARTIFACTS_ROOT/pam_hard_m10_20261003_162500/runs/m10_fold08/20261004-042342_pam_hard_control_m10_fold08/checkpoints/best.pt",
+  "best_validation_metric": 0.7172441252335888,
+  "cuda_version": "12.1",
+  "dirty_worktree": true,
+  "git_commit": "68ee8554ead8e1830075bc08d85147f59b636e55",
+  "gpu_names": [
+    "NVIDIA RTX A5000"
+  ],
+  "label_mapping": {
+    "angry": 0,
+    "disgust": 1,
+    "fear": 2,
+    "happy": 3,
+    "neutral": 4,
+    "sad": 5
+  },
+  "package_versions": {
+    "numpy": "1.26.4",
+    "pandas": "2.1.4",
+    "pyarrow": "23.0.1",
+    "scikit-learn": "1.7.1",
+    "torch": "2.5.0+cu121",
+    "torchvision": "0.20.0+cu121",
+    "transformers": "4.57.6"
+  },
+  "parameter_count": 101160190,
+  "resolved_config": {
+    "baseline": "fusion",
+    "data": {
+      "decode_error_report": "ARTIFACTS_ROOT/pam_hard_m10_20261003_162500/logs/m10_fold08_decode.csv",
+      "label_mapping": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/label_mapping.json",
+      "loader_config": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/loader.json",
+      "protocol_id": "m10_fold08",
+      "raw_root": "CREMAD_ROOT",
+      "soft_labels": {
+        "av": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_av.parquet",
+        "face": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_face.parquet",
+        "voice": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_voice.parquet"
+      },
+      "split_checksum": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold08/manifest_checksum.txt",
+      "test_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold08/manifest_test.csv",
+      "train_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold08/manifest_train.csv",
+      "val_manifest": "ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold08/manifest_val.csv"
+    },
+    "loss": {
+      "hard_weights": {
+        "audio": 0.2,
+        "fusion": 0.75,
+        "video": 0.05
+      },
+      "label_smoothing": 0.05,
+      "soft_labels_enabled": false,
+      "soft_weights": {
+        "audio": 0.0,
+        "fusion": 0.0,
+        "video": 0.0
+      }
+    },
+    "model_config": "ARTIFACTS_ROOT/published16_20260924_v1/inputs/model.json",
+    "optimizer": {
+      "backbone_learning_rate": 1e-05,
+      "learning_rate": 0.0002,
+      "minimum_learning_rate": 1e-06,
+      "weight_decay": 0.01
+    },
+    "output_root": "ARTIFACTS_ROOT/pam_hard_m10_20261003_162500/runs/m10_fold08",
+    "published_protocol": {
+      "actors": {
+        "test": [
+          1001,
+          1026,
+          1054,
+          1058,
+          1072,
+          1078,
+          1083,
+          1086,
+          1088
+        ],
+        "train": [
+          1002,
+          1003,
+          1004,
+          1005,
+          1007,
+          1008,
+          1009,
+          1010,
+          1011,
+          1013,
+          1014,
+          1015,
+          1016,
+          1017,
+          1018,
+          1019,
+          1021,
+          1022,
+          1023,
+          1024,
+          1025,
+          1027,
+          1028,
+          1029,
+          1030,
+          1032,
+          1033,
+          1035,
+          1036,
+          1037,
+          1038,
+          1039,
+          1040,
+          1041,
+          1042,
+          1043,
+          1044,
+          1045,
+          1046,
+          1047,
+          1048,
+          1049,
+          1050,
+          1051,
+          1052,
+          1053,
+          1055,
+          1057,
+          1059,
+          1060,
+          1061,
+          1063,
+          1064,
+          1065,
+          1066,
+          1067,
+          1068,
+          1069,
+          1070,
+          1071,
+          1073,
+          1075,
+          1076,
+          1077,
+          1079,
+          1080,
+          1081,
+          1082,
+          1084,
+          1087,
+          1089,
+          1090,
+          1091
+        ],
+        "val": [
+          1006,
+          1012,
+          1020,
+          1031,
+          1034,
+          1056,
+          1062,
+          1074,
+          1085
+        ]
+      },
+      "comparability": "protocol_family_new_actor_assignment",
+      "counts": {
+        "test": {
+          "actors": 9,
+          "classes": {
+            "angry": 126,
+            "disgust": 126,
+            "fear": 126,
+            "happy": 126,
+            "neutral": 108,
+            "sad": 126
+          },
+          "clips": 738
+        },
+        "train": {
+          "actors": 73,
+          "classes": {
+            "angry": 1019,
+            "disgust": 1019,
+            "fear": 1019,
+            "happy": 1019,
+            "neutral": 871,
+            "sad": 1019
+          },
+          "clips": 5966
+        },
+        "val": {
+          "actors": 9,
+          "classes": {
+            "angry": 126,
+            "disgust": 126,
+            "fear": 126,
+            "happy": 126,
+            "neutral": 108,
+            "sad": 126
+          },
+          "clips": 738
+        }
+      },
+      "excluded_clips": [],
+      "fold": 8,
+      "id": "m10_fold08",
+      "protocol": "M10",
+      "split_seed": 42,
+      "training_seed": 42,
+      "validation_seed": 4208
+    },
+    "run_id": "20261004-042342_pam_hard_control_m10_fold08",
+    "run_name": "pam_hard_control_m10_fold08",
+    "seed": 42,
+    "slurm_job_id": "83886",
+    "training": {
+      "amp": true,
+      "batch_size": 4,
+      "early_stopping_patience": 8,
+      "epochs": 40,
+      "gradient_accumulation_steps": 8,
+      "max_grad_norm": 1.0,
+      "num_workers": 12,
+      "primary_metric": "macro_f1"
+    }
+  },
+  "run_id": "20261004-042342_pam_hard_control_m10_fold08",
+  "seed": 42,
+  "split_manifest_checksum": "2fdcb19aeaab829187d849a1194f0ac7ecde3b521a61c32d4bdd0be800de9f0f",
+  "test_metrics": null,
+  "trainable_parameter_count": 18076906,
+  "utc_timestamp": "2026-10-04T05:48:25.141495+00:00"
+}

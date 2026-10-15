@@ -1,0 +1,15 @@
+{
+  "run": "A9_seed42",
+  "protocol": "T602020",
+  "fold": 1,
+  "directory": "ARTIFACTS_ROOT/pam_reviewer_20261003_162500/runs/A9_seed42/20261005-111721_reviewer_A9_seed42",
+  "epochs": 28,
+  "comparability": "fresh_paired_holdout_not_published_leaderboard",
+  "num_samples": 1476,
+  "accuracy": 0.7188346883468835,
+  "macro_f1": 0.7192490892102841,
+  "uar": 0.7164902998236332,
+  "ece": 0.09280839344350304,
+  "nll": 0.8070643176379558,
+  "brier": 0.39498492170209587
+}

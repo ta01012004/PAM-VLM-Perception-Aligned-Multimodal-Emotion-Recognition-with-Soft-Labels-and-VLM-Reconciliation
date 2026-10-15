@@ -1,0 +1,15 @@
+{
+  "run": "t602020_seed0",
+  "protocol": "T602020",
+  "fold": 1,
+  "directory": "ARTIFACTS_ROOT/published16_20260924_v1/runs/t602020_seed0/20260927-154832_published16_soft_ft2_t602020_seed0",
+  "epochs": 35,
+  "comparability": "protocol_family_new_actor_assignment_single_trial",
+  "num_samples": 1476,
+  "accuracy": 0.7642276422764228,
+  "macro_f1": 0.7719508893198364,
+  "uar": 0.7627865961199295,
+  "ece": 0.05515470664675644,
+  "nll": 0.6977293919234104,
+  "brier": 0.3453916847192628
+}

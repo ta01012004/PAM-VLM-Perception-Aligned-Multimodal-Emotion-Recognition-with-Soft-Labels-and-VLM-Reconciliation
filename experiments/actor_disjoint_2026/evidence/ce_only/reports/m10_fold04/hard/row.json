@@ -1,0 +1,15 @@
+{
+  "run": "m10_fold04",
+  "protocol": "M10",
+  "fold": 4,
+  "directory": "ARTIFACTS_ROOT/pam_hard_m10_20261003_162500/runs/m10_fold04/20261003-173144_pam_hard_control_m10_fold04",
+  "epochs": 21,
+  "comparability": "protocol_family_new_actor_assignment",
+  "num_samples": 738,
+  "accuracy": 0.7886178861788617,
+  "macro_f1": 0.7912152684561519,
+  "uar": 0.7907848324514991,
+  "ece": 0.08606142552725991,
+  "nll": 0.6929744955407346,
+  "brier": 0.32993841869717044
+}

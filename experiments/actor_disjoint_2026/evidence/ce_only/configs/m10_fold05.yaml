@@ -1,0 +1,179 @@
+run_name: pam_hard_control_m10_fold05
+baseline: fusion
+seed: 42
+output_root: ARTIFACTS_ROOT/pam_hard_m10_20261003_162500/runs/m10_fold05
+model_config: ARTIFACTS_ROOT/published16_20260924_v1/inputs/model.json
+data:
+  protocol_id: m10_fold05
+  raw_root: CREMAD_ROOT
+  train_manifest: ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold05/manifest_train.csv
+  val_manifest: ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold05/manifest_val.csv
+  test_manifest: ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold05/manifest_test.csv
+  split_checksum: ARTIFACTS_ROOT/published16_20260924_v1/splits/m10_fold05/manifest_checksum.txt
+  label_mapping: ARTIFACTS_ROOT/published16_20260924_v1/inputs/label_mapping.json
+  loader_config: ARTIFACTS_ROOT/published16_20260924_v1/inputs/loader.json
+  decode_error_report: ARTIFACTS_ROOT/pam_hard_m10_20261003_162500/logs/m10_fold05_decode.csv
+  soft_labels:
+    voice: ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_voice.parquet
+    face: ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_face.parquet
+    av: ARTIFACTS_ROOT/published16_20260924_v1/inputs/soft_labels_av.parquet
+training:
+  epochs: 40
+  batch_size: 4
+  num_workers: 12
+  gradient_accumulation_steps: 8
+  amp: true
+  max_grad_norm: 1.0
+  early_stopping_patience: 8
+  primary_metric: macro_f1
+optimizer:
+  learning_rate: 0.0002
+  backbone_learning_rate: 1.0e-05
+  minimum_learning_rate: 1.0e-06
+  weight_decay: 0.01
+loss:
+  hard_weights:
+    fusion: 0.75
+    audio: 0.2
+    video: 0.05
+  soft_labels_enabled: false
+  soft_weights:
+    fusion: 0.0
+    audio: 0.0
+    video: 0.0
+  label_smoothing: 0.05
+published_protocol:
+  id: m10_fold05
+  protocol: M10
+  fold: 5
+  training_seed: 42
+  split_seed: 42
+  validation_seed: 4205
+  actors:
+    train:
+    - 1001
+    - 1002
+    - 1003
+    - 1005
+    - 1006
+    - 1007
+    - 1010
+    - 1011
+    - 1012
+    - 1013
+    - 1015
+    - 1016
+    - 1018
+    - 1020
+    - 1021
+    - 1022
+    - 1023
+    - 1026
+    - 1027
+    - 1028
+    - 1029
+    - 1030
+    - 1031
+    - 1032
+    - 1033
+    - 1034
+    - 1036
+    - 1038
+    - 1039
+    - 1040
+    - 1041
+    - 1042
+    - 1043
+    - 1044
+    - 1046
+    - 1047
+    - 1048
+    - 1049
+    - 1050
+    - 1051
+    - 1052
+    - 1054
+    - 1055
+    - 1056
+    - 1057
+    - 1058
+    - 1059
+    - 1060
+    - 1061
+    - 1062
+    - 1063
+    - 1064
+    - 1065
+    - 1068
+    - 1070
+    - 1071
+    - 1072
+    - 1073
+    - 1074
+    - 1076
+    - 1077
+    - 1078
+    - 1079
+    - 1080
+    - 1083
+    - 1084
+    - 1085
+    - 1086
+    - 1087
+    - 1088
+    - 1089
+    - 1090
+    - 1091
+    val:
+    - 1004
+    - 1009
+    - 1014
+    - 1017
+    - 1025
+    - 1045
+    - 1067
+    - 1081
+    - 1082
+    test:
+    - 1008
+    - 1019
+    - 1024
+    - 1035
+    - 1037
+    - 1053
+    - 1066
+    - 1069
+    - 1075
+  excluded_clips: []
+  comparability: protocol_family_new_actor_assignment
+  counts:
+    train:
+      actors: 73
+      clips: 5984
+      classes:
+        angry: 1022
+        disgust: 1022
+        fear: 1022
+        happy: 1022
+        sad: 1022
+        neutral: 874
+    val:
+      actors: 9
+      clips: 732
+      classes:
+        angry: 125
+        disgust: 125
+        fear: 125
+        happy: 125
+        sad: 125
+        neutral: 107
+    test:
+      actors: 9
+      clips: 726
+      classes:
+        angry: 124
+        disgust: 124
+        fear: 124
+        happy: 124
+        sad: 124
+        neutral: 106

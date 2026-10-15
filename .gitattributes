@@ -1,0 +1,4 @@
+# Preserve exported artifact bytes and SHA256 across platforms.
+experiments/actor_disjoint_2026/** -text whitespace=cr-at-eol
+# Frozen training snapshots retain their original trailing blank lines.
+experiments/actor_disjoint_2026/tools/** whitespace=cr-at-eol,-blank-at-eof
